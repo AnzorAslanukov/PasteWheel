@@ -1,55 +1,222 @@
-from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtGui import QPainter, QColor, QPixmap, QFont, QPen, QGuiApplication
-from PyQt5.QtCore import Qt, QPointF, QRectF, pyqtSignal, QPoint
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton
+from PyQt5.QtGui import QIcon, QGuiApplication
+from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal, QSize
 import math
-import sys
 
 def debug_write(msg, append=True):
     mode = 'a' if append else 'w'
     with open('debug.txt', mode, encoding='utf-8') as f:
         f.write(msg + '\n')
 
+
+class SettingsButton(QPushButton):
+    def __init__(self, *args):
+        super().__init__(*args)
+        from PyQt5.QtWidgets import QGraphicsOpacityEffect
+        self.effect = QGraphicsOpacityEffect()
+        self.effect.setOpacity(0.5)
+        self.setGraphicsEffect(self.effect)
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(200, 200, 200, 0);
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: rgba(200, 200, 200, 255);
+            }
+        """)
+
+    def enterEvent(self, event):
+        self.effect.setOpacity(1.0)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.effect.setOpacity(0.5)
+        super().leaveEvent(event)
+
+
+class ToggleIconButton(QPushButton):
+    def __init__(self, *args):
+        super().__init__(*args)
+        from PyQt5.QtWidgets import QGraphicsOpacityEffect
+        self.effect = QGraphicsOpacityEffect()
+        self.effect.setOpacity(0.5)
+        self.setGraphicsEffect(self.effect)
+        self.icon1 = QIcon("assets/swap_middle_mouse_button.svg")
+        self.icon2 = QIcon("assets/swap_alt_plus_apostrophe.svg")
+        self.current = 1
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(200, 200, 200, 0);
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: rgba(200, 200, 200, 255);
+            }
+        """)
+
+    def enterEvent(self, event):
+        self.effect.setOpacity(1.0)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.effect.setOpacity(0.5)
+        super().leaveEvent(event)
+
+    def toggle_icon(self):
+        if self.current == 1:
+            self.setIcon(self.icon2)
+            self.current = 2
+        else:
+            self.setIcon(self.icon1)
+            self.current = 1
+
+
 class UIRenderer(QWidget):
-    buttonClicked = pyqtSignal(str)  # Signal for button clicks
+    buttonClicked = pyqtSignal(str)  # Emits an id string for clicked radial buttons
+    activationModeChanged = pyqtSignal(str)  # Emits 'mouse' or 'alt_backtick' when toggle changes
 
     def __init__(self):
         super().__init__()
-        self.layer_radii = {1: 50, 2: 100, 3: 150}
-        self.buttons = []  # List of buttons to draw
-        self.center = QPointF(0, 0)
-        self.button_images = {}  # Cache for QPixmap
-        self.show_circles = False
-        self.circles_positions = []
-        self.window_bounds = None
 
         # Window properties
+        # Keep frameless, on-top, translucent tool window like previous implementation
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.resize(300, 300)
+        # Use 350x350 like the test.py widget to provide padding around rings
+        self.setFixedSize(350, 350)
         self.hide()
 
+        # State
+        self.center = QPointF(0, 0)
+        self.window_bounds = None
+        self.show_circles = False  # accepted but not used (test UI draws real buttons)
 
+        # Button layout configuration from test.py
+        # Layer 1: min 4, max 8 (using 8 here)
+        # Layer 2: min 0, max 16 (using 16 here)
+        # Layer 3: min 0, max 24 (using 24 here)
+        self.num_layer1 = 8
+        self.num_layer2 = 16
+        self.num_layer3 = 24
+
+        # Build UI
+        self._init_radial_buttons()
+        self._add_settings_button()
+        self._add_toggle_button()
+
+    # ============== UI FROM test.py (adapted to class) ==============
+    def _init_radial_buttons(self):
+        self.buttons = []
+        button_size = 30
+        button_style = "background-color: lightgray; border-radius: 15px;"
+        # Center inside this 350x350 widget
+        center_x = 175
+        center_y = 175
+
+        def mkbtn(x, y, layer, idx):
+            btn = QPushButton(self)
+            btn.setFixedSize(button_size, button_size)
+            btn.setStyleSheet(button_style)
+            btn.setGeometry(int(x), int(y), button_size, button_size)
+            btn_id = f"L{layer}-{idx}"
+            # Connect to emit our standard signal for external handling
+            btn.clicked.connect(lambda _checked=False, _id=btn_id: self.buttonClicked.emit(_id))
+            self.buttons.append(btn)
+
+        # Layer 1 (radius 50)
+        if self.num_layer1 > 0:
+            angle_step = 360 / self.num_layer1
+            for i in range(self.num_layer1):
+                theta = math.radians(angle_step * i)
+                x = center_x + 50 * math.cos(theta) - button_size // 2
+                y = center_y + 50 * math.sin(theta) - button_size // 2
+                mkbtn(x, y, 1, i)
+
+        # Layer 2 (radius 100)
+        if self.num_layer2 > 0:
+            angle_step = 360 / self.num_layer2
+            for i in range(self.num_layer2):
+                theta = math.radians(angle_step * i)
+                x = center_x + 100 * math.cos(theta) - button_size // 2
+                y = center_y + 100 * math.sin(theta) - button_size // 2
+                mkbtn(x, y, 2, i)
+
+        # Layer 3 (radius 150)
+        if self.num_layer3 > 0:
+            angle_step = 360 / self.num_layer3
+            for i in range(self.num_layer3):
+                theta = math.radians(angle_step * i)
+                x = center_x + 150 * math.cos(theta) - button_size // 2
+                y = center_y + 150 * math.sin(theta) - button_size // 2
+                mkbtn(x, y, 3, i)
+
+    def _add_settings_button(self):
+        self.settings_button = SettingsButton(self)
+        self.settings_button.setFixedSize(30, 30)
+        icon = QIcon("assets/settings_icon.svg")
+        self.settings_button.setIcon(icon)
+        self.settings_button.setIconSize(QSize(30, 30))
+        # Top-right inside the widget with some padding
+        self.settings_button.setGeometry(350 - 30 - 10, 10, 30, 30)
+        self.settings_button.clicked.connect(lambda: debug_write("Settings clicked"))
+
+    def _add_toggle_button(self):
+        self.toggle_button = ToggleIconButton(self)
+        self.toggle_button.setFixedSize(30, 30)
+        self.toggle_button.setIcon(self.toggle_button.icon1)
+        self.toggle_button.setIconSize(QSize(30, 30))
+        # Top-left inside the widget with some padding
+        self.toggle_button.setGeometry(10, 10, 30, 30)
+        self.toggle_button.clicked.connect(self._handle_toggle_clicked)
+
+    # Mode control for toggle button / activation behavior
+    def set_activation_mode(self, mode: str):
+        # mode: 'mouse' or 'alt_backtick'
+        if mode not in ('mouse', 'alt_backtick'):
+            mode = 'mouse'
+        self.activation_mode = mode
+        # Set icon and internal toggle state without flipping
+        if mode == 'mouse':
+            self.toggle_button.setIcon(self.toggle_button.icon1)
+            self.toggle_button.current = 1
+        else:
+            self.toggle_button.setIcon(self.toggle_button.icon2)
+            self.toggle_button.current = 2
+
+    def _handle_toggle_clicked(self):
+        # Flip icon then emit the logical mode
+        self.toggle_button.toggle_icon()
+        self.activation_mode = 'mouse' if self.toggle_button.current == 1 else 'alt_backtick'
+        debug_write(f"Activation mode toggled to: {self.activation_mode}")
+        self.activationModeChanged.emit(self.activation_mode)
+
+    # ============== Public API (compatible with previous implementation) ==============
     def show_window(self, center_x, center_y, show_circles=False):
+        # Keep the parameter for compatibility; the new UI uses physical buttons instead of drawn circles
+        self.show_circles = show_circles
+
         debug_write(f"Showing window at ({center_x}, {center_y}), show_circles={show_circles}")
         app = QApplication.instance()
         point = QPoint(int(center_x), int(center_y))
 
-        # Determine the screen that contains the click point
+        # Determine the screen under the click
         screen = None
         try:
             screen = QGuiApplication.screenAt(point)
-        except Exception as e:
+        except Exception:
             screen = None
 
         if screen is not None:
-            # Prefer availableGeometry to avoid taskbars and right()/bottom() off-by-one behavior
+            # Prefer available geometry to avoid taskbars
             try:
                 screen_geom = screen.availableGeometry()
                 debug_write(f"ScreenAt({point}) -> {screen.name()} avail-geom={screen_geom}")
-            except Exception as e:
+            except Exception:
                 screen_geom = screen.geometry()
                 debug_write(f"ScreenAt({point}) -> {screen.name()} geom={screen_geom} (fallback)")
         else:
+            # Fallback for older Qt APIs
             try:
                 desktop = app.desktop()
                 screen_idx = desktop.screenNumber(point)
@@ -58,48 +225,35 @@ class UIRenderer(QWidget):
                     screen_geom = s.availableGeometry() if s is not None else app.primaryScreen().geometry()
                     debug_write(f"screenAt None and screenNumber < 0; fallback to primary avail-geom: {screen_geom}")
                 else:
-                    # Use availableGeometry for the specific screen index
                     screen_geom = desktop.availableGeometry(screen_idx)
                     debug_write(f"Using desktop screen #{screen_idx} avail-geom: {screen_geom}")
-            except Exception as e:
+            except Exception:
                 s = app.primaryScreen()
                 screen_geom = s.availableGeometry() if s is not None else app.primaryScreen().geometry()
                 debug_write(f"Desktop API failed; fallback to primary avail-geom: {screen_geom}")
 
-        # Clamp center within the target screen so the 300x300 window stays fully visible on that screen
-        min_cx = screen_geom.x() + 150
-        max_cx = screen_geom.x() + screen_geom.width() - 150
-        min_cy = screen_geom.y() + 150
-        max_cy = screen_geom.y() + screen_geom.height() - 150
+        # Clamp center within target screen so 350x350 stays visible on that screen
+        half_w = self.width() // 2  # 175
+        half_h = self.height() // 2  # 175
+        min_cx = screen_geom.x() + half_w
+        max_cx = screen_geom.x() + screen_geom.width() - half_w
+        min_cy = screen_geom.y() + half_h
+        max_cy = screen_geom.y() + screen_geom.height() - half_h
         center_x = max(min_cx, min(max_cx, center_x))
         center_y = max(min_cy, min(max_cy, center_y))
         debug_write(f"Clamped center to target screen: ({center_x},{center_y}) [range x:{min_cx}-{max_cx}, y:{min_cy}-{max_cy}]")
 
         self.center = QPointF(center_x, center_y)
+        self.window_bounds = (center_x - half_w, center_y - half_h, center_x + half_w, center_y + half_h)
 
-        # Will assign window to target screen after show()
-
-        self.move(int(center_x - 150), int(center_y - 150))
-        debug_write(f"Window moved to ({center_x - 150}, {center_y - 150})")
-        if show_circles:
-            self.show_circles = True
-            self.circles_positions = []
-            angles = [0, 90, 180, 270]
-            radius = 50  # Distance from center
-            for angle in angles:
-                angle_rad = math.radians(angle)
-                x = 150 + radius * math.cos(angle_rad)
-                y = 150 + radius * math.sin(angle_rad)
-                self.circles_positions.append((x, y))
-            self.window_bounds = (center_x - 150, center_y - 150, center_x + 150, center_y + 150)
-            debug_write(f"Bounds set: {self.window_bounds}")
-        else:
-            self.show_circles = False
-            self.circles_positions.clear()
+        # Move and show
+        self.move(int(center_x - half_w), int(center_y - half_h))
+        debug_write(f"Window moved to ({center_x - half_w}, {center_y - half_h})")
+        debug_write(f"Bounds set: {self.window_bounds}")
         try:
             self.update()
             self.show()
-            # Associate native window with the target screen after show (ensures windowHandle exists)
+            # Ensure the native window is associated with the correct screen after show
             try:
                 handle = self.windowHandle()
                 if handle is not None and screen is not None:
@@ -115,99 +269,10 @@ class UIRenderer(QWidget):
     def hide_window(self):
         debug_write("Hiding window")
         self.hide()
-        self.buttons.clear()
-        self.button_images.clear()
+        # Keep buttons persistent; just reset transient state
         self.show_circles = False
-        self.circles_positions.clear()
-        self.window_bounds = None
 
+    # Backwards-compat shim (not actively used by test UI).
     def set_buttons(self, buttons):
-        self.buttons = buttons
-        self.update()
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # Draw concentric circles
-        painter.setPen(QPen(Qt.gray, 1))
-        painter.setBrush(Qt.NoBrush)
-        for radius in self.layer_radii.values():
-            painter.drawEllipse(150 - radius, 150 - radius, 2 * radius, 2 * radius)
-
-        # Draw buttons
-        for button in self.buttons:
-            self._draw_button(painter, button)
-
-        # Draw circles if enabled
-        if self.show_circles:
-            for x, y in self.circles_positions:
-                painter.setPen(QPen(Qt.white, 2))
-                painter.setBrush(Qt.NoBrush)
-                painter.drawEllipse(int(x - 15), int(y - 15), 30, 30)
-
-    def _draw_button(self, painter, button):
-        if button.angle is None:
-            return
-        angle_rad = math.radians(button.angle)
-        radius = self.layer_radii.get(button.layer, 50)
-        x = 150 + radius * math.cos(angle_rad)
-        y = 150 + radius * math.sin(angle_rad)
-        button_size = 30
-        rect = QRectF(x - button_size // 2, y - button_size // 2, button_size, button_size)
-
-        if button.identifier_type == 'color':
-            painter.setPen(QPen(Qt.white, 1))
-            painter.setBrush(QColor(button.identifier_value))
-            painter.drawEllipse(rect)
-        elif button.identifier_type in ['string', 'emoji']:
-            painter.setPen(QPen(Qt.white, 1))
-            painter.setBrush(Qt.blue)
-            painter.drawEllipse(rect)
-            painter.setFont(QFont("Arial", 12))
-            painter.drawText(rect, Qt.AlignCenter, button.identifier_value)
-        elif button.identifier_type == 'image':
-            # Load and cache QPixmap
-            if button.identifier_value not in self.button_images:
-                pixmap = QPixmap(button.identifier_value)
-                if pixmap.isNull():
-                    pixmap = QPixmap(button_size, button_size)
-                    pixmap.fill(Qt.red)  # Fallback
-                else:
-                    pixmap = pixmap.scaled(button_size, button_size, Qt.KeepAspectRatio)
-                self.button_images[button.identifier_value] = pixmap
-            pixmap = self.button_images[button.identifier_value]
-            painter.drawPixmap(rect.toRect(), pixmap)
-
-        # Label with button id for debugging
-        painter.setFont(QFont("Arial", 8))
-        painter.drawText(rect.bottomLeft().x(), rect.bottomLeft().y() + 15, button.id)
-
-    def mousePressEvent(self, event):
-        # Simple hit detection: check distance to center
-        click_pos = event.pos()
-        for button in self.buttons:
-            if button.angle is None:
-                continue
-            angle_rad = math.radians(button.angle)
-            radius = self.layer_radii.get(button.layer, 50)
-            expected_x = 150 + radius * math.cos(angle_rad)
-            expected_y = 150 + radius * math.sin(angle_rad)
-            distance = math.hypot(click_pos.x() - expected_x, click_pos.y() - expected_y)
-            if distance < 15:  # Within button radius
-                self.buttonClicked.emit(button.id)
-                return
-
-    def resizeEvent(self, event):
-        # Ensure window is 300x300
-        super().resizeEvent(event)
-        if self.size() != event.oldSize():
-            self.resize(300, 300)
-
-if __name__ == "__main__":
-    # Example usage
-    app = QApplication(sys.argv)
-    # ui = UIRenderer()
-    # ui.show()
-    # sys.exit(app.exec_())
-    pass
+        # This UI builds its own QPushButtons; keeping the method for compatibility.
+        debug_write("set_buttons called, but the current UI ignores external button definitions.")
