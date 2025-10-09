@@ -35,6 +35,14 @@ class SettingsButton(QPushButton):
         super().leaveEvent(event)
 
 
+class SettingsWindow(QWidget):
+    def __init__(self, parent=None):
+        # Create a normal top-level window (with title bar) that stays on top.
+        super().__init__(parent, Qt.Window | Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Settings")
+        # Leave blank for now per requirements
+        self.setMinimumSize(400, 300)
+
 class ToggleIconButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
@@ -75,6 +83,7 @@ class ToggleIconButton(QPushButton):
 class UIRenderer(QWidget):
     buttonClicked = pyqtSignal(str)  # Emits an id string for clicked radial buttons
     activationModeChanged = pyqtSignal(str)  # Emits 'mouse' or 'alt_backtick' when toggle changes
+    closeAppRequested = pyqtSignal()  # Emits when the user clicks the close button in the UI
 
     def __init__(self):
         super().__init__()
@@ -91,6 +100,7 @@ class UIRenderer(QWidget):
         self.center = QPointF(0, 0)
         self.window_bounds = None
         self.show_circles = False  # accepted but not used (test UI draws real buttons)
+        self._settings_window = None
 
         # Button layout configuration from test.py
         # Layer 1: min 4, max 8 (using 8 here)
@@ -104,6 +114,7 @@ class UIRenderer(QWidget):
         self._init_radial_buttons()
         self._add_settings_button()
         self._add_toggle_button()
+        self._add_close_button()
 
     # ============== UI FROM test.py (adapted to class) ==============
     def _init_radial_buttons(self):
@@ -159,7 +170,40 @@ class UIRenderer(QWidget):
         self.settings_button.setIconSize(QSize(30, 30))
         # Top-right inside the widget with some padding
         self.settings_button.setGeometry(350 - 30 - 10, 10, 30, 30)
-        self.settings_button.clicked.connect(lambda: debug_write("Settings clicked"))
+        self.settings_button.clicked.connect(self._open_settings_window)
+
+    def _open_settings_window(self):
+        debug_write("Opening settings window")
+        if self._settings_window is None:
+            self._settings_window = SettingsWindow(self)
+        # Show and focus the settings window
+        try:
+            self._settings_window.show()
+            self._settings_window.raise_()
+            self._settings_window.activateWindow()
+        except Exception as e:
+            debug_write(f"Failed to open settings window: {e}")
+
+    def is_point_in_ui_or_settings(self, x: int, y: int) -> bool:
+        try:
+            # Check main UI bounds
+            if self.window_bounds is not None:
+                x1, y1, x2, y2 = self.window_bounds
+                if x1 <= x <= x2 and y1 <= y <= y2:
+                    return True
+            # Check settings window bounds (if visible)
+            if self._settings_window is not None and self._settings_window.isVisible():
+                try:
+                    geom = self._settings_window.frameGeometry()
+                except Exception:
+                    geom = self._settings_window.geometry()
+                if geom is not None:
+                    gx, gy, gw, gh = geom.x(), geom.y(), geom.width(), geom.height()
+                    if gx <= x <= gx + gw and gy <= y <= gy + gh:
+                        return True
+        except Exception:
+            pass
+        return False
 
     def _add_toggle_button(self):
         self.toggle_button = ToggleIconButton(self)
@@ -169,6 +213,29 @@ class UIRenderer(QWidget):
         # Top-left inside the widget with some padding
         self.toggle_button.setGeometry(10, 10, 30, 30)
         self.toggle_button.clicked.connect(self._handle_toggle_clicked)
+
+    def _add_close_button(self):
+        # Close button placed in the lower-left corner with the same visual style as other corner buttons.
+        # When clicked it will emit closeAppRequested so the main thread can stop listeners and exit.
+        self.close_button = SettingsButton(self)
+        self.close_button.setFixedSize(30, 30)
+        icon = QIcon("assets/close_pastewheel.svg")
+        self.close_button.setIcon(icon)
+        self.close_button.setIconSize(QSize(30, 30))
+        # Bottom-left inside the widget with some padding
+        self.close_button.setGeometry(10, 350 - 30 - 10, 30, 30)
+        self.close_button.clicked.connect(self._handle_close_clicked)
+
+    def _handle_close_clicked(self):
+        debug_write("Close button clicked, emitting closeAppRequested")
+        try:
+            self.closeAppRequested.emit()
+        except Exception as e:
+            debug_write(f"Error emitting closeAppRequested: {e}")
+        try:
+            self.hide()
+        except Exception as e:
+            debug_write(f"Error hiding UI after close click: {e}")
 
     # Mode control for toggle button / activation behavior
     def set_activation_mode(self, mode: str):

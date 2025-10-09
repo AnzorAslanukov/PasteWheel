@@ -48,15 +48,23 @@ def on_click(x, y, button, pressed):
         debug_write(f"Mouse event: {button} {'pressed' if pressed else 'released'} at ({x}, {y})")
         if pressed:
             if button in [Button.left, Button.right] and ui.window_bounds is not None:
-                x1, y1, x2, y2 = ui.window_bounds
-                debug_write(f"UI shown, checking if outside bounds: click ({x},{y}) in ({x1},{y1})-({x2},{y2})")
-                inside = x >= x1 and x <= x2 and y >= y1 and y <= y2
-                debug_write(f"Inside UI: {inside}")
+                inside = False
+                try:
+                    inside = ui.is_point_in_ui_or_settings(x, y)
+                except Exception as e:
+                    debug_write(f"Error checking point in ui/settings: {e}")
+                    # Fallback to simple bounds check
+                    try:
+                        x1, y1, x2, y2 = ui.window_bounds
+                        inside = x1 <= x <= x2 and y1 <= y <= y2
+                    except Exception:
+                        inside = False
+                debug_write(f"Inside main UI or settings: {inside}")
                 if not inside:
                     debug_write("Hiding UI")
                     bridge.hideRequest.emit()
             elif button == Button.middle:
-                if activation_mode != 'mouse':
+                if get_current_activation_mode() != 'mouse':
                     debug_write("Middle button pressed but activation_mode != 'mouse'; ignoring")
                 else:
                     debug_write("Middle button pressed, showing UI")
@@ -77,7 +85,7 @@ def on_key_press(key):
     # Only handle in alt_backtick mode
     global alt_down, backtick_down, chord_triggered
     try:
-        if activation_mode != 'alt_backtick':
+        if get_current_activation_mode() != 'alt_backtick':
             return
         if key in (keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r):
             alt_down = True
@@ -119,6 +127,15 @@ bridge = UIThreadBridge()
 bridge.showRequest.connect(lambda x, y, sc: ui.show_window(x, y, show_circles=sc))
 bridge.hideRequest.connect(ui.hide_window)
 
+# Helper to retrieve the current activation mode from UI if available. This ensures listeners
+# always consult the live UI state (the toggle) rather than relying only on the module-level
+# variable which can become stale across threads.
+def get_current_activation_mode():
+    try:
+        return ui.activation_mode
+    except Exception:
+        return activation_mode
+
 # Initialize UI activation mode from config and persist changes on toggle
 try:
     ui.set_activation_mode(activation_mode)
@@ -135,6 +152,41 @@ def on_activation_mode_changed(mode):
     debug_write(f"Persisted activation_mode: {activation_mode}")
 
 ui.activationModeChanged.connect(on_activation_mode_changed)
+
+def on_close_requested():
+    # Stop background listeners and terminate the application when UI requests close.
+    # Use globals so the handler can access the listener objects created later.
+    global listener, kb_listener
+    debug_write("Close requested from UI; stopping listeners and exiting")
+    try:
+        if 'listener' in globals() and listener is not None:
+            listener.stop()
+            debug_write("Mouse listener stopped")
+    except Exception as e:
+        debug_write(f"Error stopping mouse listener: {e}")
+    try:
+        if 'kb_listener' in globals() and kb_listener is not None:
+            kb_listener.stop()
+            debug_write("Keyboard listener stopped")
+    except Exception as e:
+        debug_write(f"Error stopping keyboard listener: {e}")
+    try:
+        bridge.hideRequest.emit()
+    except Exception as e:
+        debug_write(f"Error emitting hideRequest during close: {e}")
+    try:
+        app.quit()
+        debug_write("QApplication quit called")
+    except Exception as e:
+        debug_write(f"Error quitting QApplication: {e}")
+    try:
+        sys.exit(0)
+    except SystemExit:
+        pass
+    except Exception as e:
+        debug_write(f"Error calling sys.exit: {e}")
+
+ui.closeAppRequested.connect(on_close_requested)
 
 # Start global keyboard listener for ALT+` mode
 kb_listener = keyboard.Listener(on_press=on_key_press, on_release=on_key_release)
