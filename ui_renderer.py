@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton
 from PyQt5.QtGui import QIcon, QGuiApplication
-from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal, QSize
+from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal, QSize, QTimer
 import math
+import json
 
 def debug_write(msg, append=True):
     mode = 'a' if append else 'w'
@@ -10,7 +11,11 @@ def debug_write(msg, append=True):
 
 
 class SettingsButton(QPushButton):
-    def __init__(self, *args):
+    def __init__(self, *args, tooltip_text: str = None, tooltip_delay: int = 0):
+        """
+        tooltip_text: optional tooltip text to show on hover
+        tooltip_delay: delay in milliseconds before showing tooltip (0 -> show immediately)
+        """
         super().__init__(*args)
         from PyQt5.QtWidgets import QGraphicsOpacityEffect
         self.effect = QGraphicsOpacityEffect()
@@ -25,14 +30,57 @@ class SettingsButton(QPushButton):
                 background-color: rgba(200, 200, 200, 255);
             }
         """)
+        # Tooltip handling
+        self._tooltip_text = tooltip_text
+        self._tooltip_delay = int(tooltip_delay or 0)
+        self._tooltip_timer = QTimer(self)
+        self._tooltip_timer.setSingleShot(True)
+        self._tooltip_timer.timeout.connect(self._show_tooltip_now)
 
     def enterEvent(self, event):
         self.effect.setOpacity(1.0)
+        # Show tooltip immediately or after configured delay
+        try:
+            if self._tooltip_text:
+                if self._tooltip_delay and self._tooltip_delay > 0:
+                    self._tooltip_timer.start(self._tooltip_delay)
+                else:
+                    self._show_tooltip_now()
+        except Exception:
+            pass
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self.effect.setOpacity(0.5)
+        try:
+            if self._tooltip_timer.isActive():
+                self._tooltip_timer.stop()
+            # Hide tooltip immediately when leaving
+            try:
+                from PyQt5.QtWidgets import QToolTip
+                QToolTip.hideText()
+            except Exception:
+                pass
+        except Exception:
+            pass
         super().leaveEvent(event)
+
+    def _show_tooltip_now(self):
+        try:
+            if not self._tooltip_text:
+                return
+            from PyQt5.QtWidgets import QToolTip
+            # Show tooltip at the center of the widget
+            pos = self.mapToGlobal(self.rect().center())
+            QToolTip.showText(pos, self._tooltip_text, self)
+        except Exception:
+            pass
+
+    def set_tooltip(self, text: str, delay: int = 0):
+        """Update tooltip text and optional delay (ms)."""
+        self._tooltip_text = text
+        self._tooltip_delay = int(delay or 0)
+        # If a timer exists, update nothing else; the new delay will be used on next hover.
 
 
 class SettingsWindow(QWidget):
@@ -43,33 +91,15 @@ class SettingsWindow(QWidget):
         # Leave blank for now per requirements
         self.setMinimumSize(400, 300)
 
-class ToggleIconButton(QPushButton):
+class ToggleIconButton(SettingsButton):
     def __init__(self, *args):
-        super().__init__(*args)
-        from PyQt5.QtWidgets import QGraphicsOpacityEffect
-        self.effect = QGraphicsOpacityEffect()
-        self.effect.setOpacity(0.5)
-        self.setGraphicsEffect(self.effect)
+        # Inherit visual and tooltip behavior from SettingsButton
+        # Default tooltip will be set by the creator (UIRenderer)
+        super().__init__(*args, tooltip_text=None, tooltip_delay=0)
         self.icon1 = QIcon("assets/swap_middle_mouse_button.svg")
         self.icon2 = QIcon("assets/swap_alt_plus_apostrophe.svg")
         self.current = 1
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(200, 200, 200, 0);
-                border-radius: 15px;
-            }
-            QPushButton:hover {
-                background-color: rgba(200, 200, 200, 255);
-            }
-        """)
-
-    def enterEvent(self, event):
-        self.effect.setOpacity(1.0)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self.effect.setOpacity(0.5)
-        super().leaveEvent(event)
+        # Keep the same style as SettingsButton; no extra styling needed here
 
     def toggle_icon(self):
         if self.current == 1:
@@ -101,6 +131,8 @@ class UIRenderer(QWidget):
         self.window_bounds = None
         self.show_circles = False  # accepted but not used (test UI draws real buttons)
         self._settings_window = None
+        # Container for configured radial buttons (may be empty if no config present)
+        self.buttons = []
 
         # Button layout configuration from test.py
         # Layer 1: min 4, max 8 (using 8 here)
@@ -110,8 +142,10 @@ class UIRenderer(QWidget):
         self.num_layer2 = 16
         self.num_layer3 = 24
 
-        # Build UI
-        self._init_radial_buttons()
+        # Load user button configuration and build UI accordingly
+        # If no button config exists in user_config.json, the UI will be empty except for corner
+        # buttons and a central "add first button".
+        self._load_user_buttons()
         self._add_settings_button()
         self._add_toggle_button()
         self._add_close_button()
@@ -163,7 +197,8 @@ class UIRenderer(QWidget):
                 mkbtn(x, y, 3, i)
 
     def _add_settings_button(self):
-        self.settings_button = SettingsButton(self)
+        # Settings button with immediate tooltip
+        self.settings_button = SettingsButton(self, tooltip_text="Settings — open to add or configure buttons", tooltip_delay=0)
         self.settings_button.setFixedSize(30, 30)
         icon = QIcon("assets/settings_icon.svg")
         self.settings_button.setIcon(icon)
@@ -206,6 +241,7 @@ class UIRenderer(QWidget):
         return False
 
     def _add_toggle_button(self):
+        # Toggle button (top-left). Tooltip will be kept in sync with activation mode.
         self.toggle_button = ToggleIconButton(self)
         self.toggle_button.setFixedSize(30, 30)
         self.toggle_button.setIcon(self.toggle_button.icon1)
@@ -213,11 +249,16 @@ class UIRenderer(QWidget):
         # Top-left inside the widget with some padding
         self.toggle_button.setGeometry(10, 10, 30, 30)
         self.toggle_button.clicked.connect(self._handle_toggle_clicked)
+        # Default tooltip (may be updated by set_activation_mode)
+        try:
+            self.toggle_button.set_tooltip("Open UI with middle mouse button", 0)
+        except Exception:
+            pass
 
     def _add_close_button(self):
         # Close button placed in the lower-left corner with the same visual style as other corner buttons.
         # When clicked it will emit closeAppRequested so the main thread can stop listeners and exit.
-        self.close_button = SettingsButton(self)
+        self.close_button = SettingsButton(self, tooltip_text="Shutdown the entire PasteWheel program", tooltip_delay=0)
         self.close_button.setFixedSize(30, 30)
         icon = QIcon("assets/close_pastewheel.svg")
         self.close_button.setIcon(icon)
@@ -237,6 +278,52 @@ class UIRenderer(QWidget):
         except Exception as e:
             debug_write(f"Error hiding UI after close click: {e}")
 
+    def _add_center_add_button(self):
+        # Add a centered "add first button" when no button config exists. Uses same style as corner buttons.
+        try:
+            # Add a center button with a 1 second tooltip delay
+            self.add_first_button = SettingsButton(self, tooltip_text="Add your first button to the UI", tooltip_delay=1000)
+            self.add_first_button.setFixedSize(30, 30)
+            icon = QIcon("assets/add_first_button.svg")
+            self.add_first_button.setIcon(icon)
+            self.add_first_button.setIconSize(QSize(30, 30))
+            # Center the button inside the 350x350 widget
+            cx = (self.width() - 30) // 2
+            cy = (self.height() - 30) // 2
+            self.add_first_button.setGeometry(cx, cy, 30, 30)
+            # For now clicking the add button opens the settings window
+            self.add_first_button.clicked.connect(self._open_settings_window)
+            debug_write("Added center 'add first button' (tooltip delay 1000ms)")
+        except Exception as e:
+            debug_write(f"Error creating center add button: {e}")
+
+    def _load_user_buttons(self):
+        # Load button configuration from user_config.json. If no buttons configured, add center add button.
+        try:
+            cfg = {}
+            try:
+                with open('user_config.json', 'r', encoding='utf-8') as f:
+                    cfg = json.load(f)
+            except Exception:
+                cfg = {}
+            buttons_cfg = cfg.get('buttons', [])
+            if not buttons_cfg:
+                # No configured buttons: intentionally leave radial area empty and show a center add button
+                try:
+                    self._add_center_add_button()
+                except Exception as e:
+                    debug_write(f"Failed to add center add button: {e}")
+            else:
+                # There is button config; build radial buttons (existing behavior)
+                # For now, fallback to the standard radial initialization which creates placeholders.
+                # A full mapping from config -> buttons will be implemented later.
+                try:
+                    self._init_radial_buttons()
+                except Exception as e:
+                    debug_write(f"Failed to initialize radial buttons from config: {e}")
+        except Exception as e:
+            debug_write(f"Error loading user buttons: {e}")
+
     # Mode control for toggle button / activation behavior
     def set_activation_mode(self, mode: str):
         # mode: 'mouse' or 'alt_backtick'
@@ -247,14 +334,33 @@ class UIRenderer(QWidget):
         if mode == 'mouse':
             self.toggle_button.setIcon(self.toggle_button.icon1)
             self.toggle_button.current = 1
+            try:
+                self.toggle_button.set_tooltip("Open UI with middle mouse button", 0)
+            except Exception:
+                pass
         else:
             self.toggle_button.setIcon(self.toggle_button.icon2)
             self.toggle_button.current = 2
+            try:
+                self.toggle_button.set_tooltip("Open UI with Alt+` (Alt + backtick)", 0)
+            except Exception:
+                pass
 
     def _handle_toggle_clicked(self):
         # Flip icon then emit the logical mode
         self.toggle_button.toggle_icon()
         self.activation_mode = 'mouse' if self.toggle_button.current == 1 else 'alt_backtick'
+        # Update tooltip to reflect new mode
+        if self.activation_mode == 'mouse':
+            try:
+                self.toggle_button.set_tooltip("Open UI with middle mouse button", 0)
+            except Exception:
+                pass
+        else:
+            try:
+                self.toggle_button.set_tooltip("Open UI with Alt+` (Alt + backtick)", 0)
+            except Exception:
+                pass
         debug_write(f"Activation mode toggled to: {self.activation_mode}")
         self.activationModeChanged.emit(self.activation_mode)
 
