@@ -334,8 +334,22 @@ class UIRenderer(QWidget):
             debug_write(f"Error showing window: {e}")
 
     def hide_window(self):
-        debug_write("Hiding window")
-        self.hide()
+        debug_write("Hiding window and settings (if open)")
+        # Hide the settings window if it's visible so a click outside closes both windows
+        try:
+            if self._settings_window is not None and self._settings_window.isVisible():
+                try:
+                    self._settings_window.hide()
+                    debug_write("Settings window hidden")
+                except Exception as e:
+                    debug_write(f"Error hiding settings window: {e}")
+        except Exception:
+            pass
+        # Hide main UI
+        try:
+            self.hide()
+        except Exception as e:
+            debug_write(f"Error hiding main UI: {e}")
         # Keep buttons persistent; just reset transient state
         self.show_circles = False
 
