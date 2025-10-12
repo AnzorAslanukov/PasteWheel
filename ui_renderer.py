@@ -88,8 +88,31 @@ class SettingsWindow(QWidget):
         # Create a normal top-level window (with title bar) that stays on top.
         super().__init__(parent, Qt.Window | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Settings")
-        # Leave blank for now per requirements
         self.setMinimumSize(400, 300)
+
+        # Lazy/import inside ctor to avoid changing top-level imports
+        from PyQt5.QtWidgets import QTabWidget, QVBoxLayout, QLabel
+
+        # Create a tab widget with two tabs: "General" and "Buttons"
+        self.tabs = QTabWidget(self)
+
+        # General tab
+        general_tab = QWidget()
+        gen_layout = QVBoxLayout(general_tab)
+        gen_layout.addWidget(QLabel("General settings will appear here."))
+
+        # Buttons tab
+        buttons_tab = QWidget()
+        btn_layout = QVBoxLayout(buttons_tab)
+        btn_layout.addWidget(QLabel("Configure buttons here."))
+
+        self.tabs.addTab(general_tab, "General")
+        self.tabs.addTab(buttons_tab, "Buttons")
+
+        # Main layout for the settings window
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self.tabs)
+        self.setLayout(main_layout)
 
 class ToggleIconButton(SettingsButton):
     def __init__(self, *args):
@@ -207,10 +230,46 @@ class UIRenderer(QWidget):
         self.settings_button.setGeometry(350 - 30 - 10, 10, 30, 30)
         self.settings_button.clicked.connect(self._open_settings_window)
 
-    def _open_settings_window(self):
+    def _open_settings_window(self, default_tab=None):
         debug_write("Opening settings window")
         if self._settings_window is None:
             self._settings_window = SettingsWindow(self)
+
+        # If a default tab name or index was provided, attempt to set it before showing.
+        try:
+            if default_tab is not None:
+                try:
+                    # Allow either an integer index or a tab text (e.g., "Buttons")
+                    if isinstance(default_tab, int):
+                        idx = int(default_tab)
+                    else:
+                        idx = None
+                        for i in range(self._settings_window.tabs.count()):
+                            try:
+                                if self._settings_window.tabs.tabText(i) == str(default_tab):
+                                    idx = i
+                                    break
+                            except Exception:
+                                continue
+                        # Fallback: try a case-insensitive partial match
+                        if idx is None:
+                            for i in range(self._settings_window.tabs.count()):
+                                try:
+                                    if str(default_tab).lower() in self._settings_window.tabs.tabText(i).lower():
+                                        idx = i
+                                        break
+                                except Exception:
+                                    continue
+                    if idx is not None:
+                        try:
+                            self._settings_window.tabs.setCurrentIndex(idx)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         # Show and focus the settings window
         try:
             self._settings_window.show()
@@ -291,8 +350,8 @@ class UIRenderer(QWidget):
             cx = (self.width() - 30) // 2
             cy = (self.height() - 30) // 2
             self.add_first_button.setGeometry(cx, cy, 30, 30)
-            # For now clicking the add button opens the settings window
-            self.add_first_button.clicked.connect(self._open_settings_window)
+            # For now clicking the add button opens the settings window and selects the Buttons tab
+            self.add_first_button.clicked.connect(lambda _checked=False: self._open_settings_window("Buttons"))
             debug_write("Added center 'add first button' (tooltip delay 1000ms)")
         except Exception as e:
             debug_write(f"Error creating center add button: {e}")
