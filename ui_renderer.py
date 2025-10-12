@@ -83,6 +83,38 @@ class SettingsButton(QPushButton):
         # If a timer exists, update nothing else; the new delay will be used on next hover.
 
 
+class RadialPreview(QWidget):
+    """
+    Lightweight preview widget used inside Settings > Buttons.
+    Draws concentric ring outlines (no corner buttons or center add button).
+    """
+    def __init__(self, parent=None, size: int = 300):
+        super().__init__(parent)
+        self.setFixedSize(size, size)
+
+    def paintEvent(self, event):
+        try:
+            from PyQt5.QtGui import QPainter, QPen, QColor
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            # Subtle outline color and width to indicate rings without filling
+            pen = QPen(QColor(160, 160, 160))
+            pen.setWidth(2)
+            painter.setPen(pen)
+
+            rect = self.rect()
+            center = rect.center()
+            # Radii chosen to be visually similar to the main UI proportions
+            max_radius = min(rect.width(), rect.height()) // 2 - 10
+            # Use three concentric rings
+            radii = [int(max_radius * 0.33), int(max_radius * 0.66), int(max_radius * 0.95)]
+            for r in radii:
+                painter.drawEllipse(center, r, r)
+
+            painter.end()
+        except Exception as e:
+            debug_write(f"RadialPreview paint error: {e}")
+
 class SettingsWindow(QWidget):
     def __init__(self, parent=None):
         # Create a normal top-level window (with title bar) that stays on top.
@@ -101,10 +133,14 @@ class SettingsWindow(QWidget):
         gen_layout = QVBoxLayout(general_tab)
         gen_layout.addWidget(QLabel("General settings will appear here."))
 
-        # Buttons tab
+        # Buttons tab - include a RadialPreview showing ring outlines only
         buttons_tab = QWidget()
         btn_layout = QVBoxLayout(buttons_tab)
-        btn_layout.addWidget(QLabel("Configure buttons here."))
+        # Add the radial preview centered in the tab
+        preview = RadialPreview(self)
+        btn_layout.addStretch(1)
+        btn_layout.addWidget(preview, 0, Qt.AlignCenter)
+        btn_layout.addStretch(1)
 
         self.tabs.addTab(general_tab, "General")
         self.tabs.addTab(buttons_tab, "Buttons")
