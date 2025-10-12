@@ -1,13 +1,13 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton
 from PyQt5.QtGui import QIcon, QGuiApplication
-from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal, QSize, QTimer
+from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal, QSize, QTimer, QEvent
 import math
 import json
 
 def debug_write(msg, append=True):
     mode = 'a' if append else 'w'
-    with open('debug.txt', mode, encoding='utf-8') as f:
-        f.write(msg + '\n')
+    with open('debug.txt', mode, encoding='utf-8') as f: 
+        f.write(msg + '\n') 
 
 
 class SettingsButton(QPushButton):
@@ -86,11 +86,249 @@ class SettingsButton(QPushButton):
 class RadialPreview(QWidget):
     """
     Lightweight preview widget used inside Settings > Buttons.
-    Draws concentric ring outlines (no corner buttons or center add button).
+    Draws concentric ring outlines and a central preview button (green by default).
     """
     def __init__(self, parent=None, size: int = 300):
         super().__init__(parent)
         self.setFixedSize(size, size)
+        # Ensure the preview and its children receive hover/mouse events immediately
+        try:
+            self.setAttribute(Qt.WA_Hover, True)
+            self.setMouseTracking(True)
+        except Exception:
+            pass
+
+        # Create a center preview button with green/grey icons that toggle on click
+        try:
+            # Use SettingsButton so tooltip timing/behavior and hover opacity are consistent with other corner buttons.
+            self.center_btn = SettingsButton(self, tooltip_text="Clicking this button will add new buttons to the main PasteWheel UI.", tooltip_delay=0)
+            btn_size = 30
+            self.center_btn.setFixedSize(btn_size, btn_size)
+            self.icon_green = QIcon("assets/add_new_button_green.svg")
+            self.icon_grey = QIcon("assets/add_new_button_grey.svg")
+            self.center_btn.setIcon(self.icon_green)
+            self.center_btn.setIconSize(QSize(btn_size, btn_size))
+
+            # Make the button visually icon-only (no outline) and transparent background; add hover background.
+            # SettingsButton already provides an opacity effect on hover; additionally set a hover background color.
+            try:
+                self.center_btn.setFlat(True)
+                self.center_btn.setStyleSheet(
+                    "border: none; background: transparent;"
+                    "QPushButton:hover { background-color: #f0f0f0; border-radius: 15px; }"
+                )
+            except Exception:
+                pass
+
+            # Ensure tooltips use white background + black text (global style for this process)
+            try:
+                from PyQt5.QtWidgets import QToolTip
+                QToolTip.setStyleSheet("QToolTip { background-color: white; color: black; border: 1px solid #d0d0d0; padding: 5px; }")
+            except Exception:
+                pass
+
+            # Position the button in the visual center of this preview widget
+            cx = (self.width() - btn_size) // 2
+            cy = (self.height() - btn_size) // 2
+            self.center_btn.setGeometry(cx, cy, btn_size, btn_size)
+            self._is_green = True
+            self.center_btn.clicked.connect(self._toggle_center_icon)
+            # Container for dynamically added preview layer-1 buttons
+            self.layer1_buttons = []
+            # Keep references to per-button settings windows so they are not GC'd
+            self._button_settings_windows = {}
+            try:
+                # Install an event filter so we can reliably show the tooltip and
+                # toggle hover styling even if the widget hierarchy interferes.
+                self.center_btn.installEventFilter(self)
+            except Exception:
+                pass
+        except Exception as e:
+            debug_write(f"RadialPreview init error: {e}")
+
+    def _toggle_center_icon(self):
+        try:
+            self._is_green = not self._is_green
+            if self._is_green:
+                # Switch to green center icon and remove any preview layer-1 buttons
+                self.center_btn.setIcon(self.icon_green)
+                try:
+                    for b in self.layer1_buttons:
+                        try:
+                            b.hide()
+                            b.setParent(None)
+                            b.deleteLater()
+                        except Exception:
+                            pass
+                    self.layer1_buttons = []
+                except Exception as e:
+                    debug_write(f"Error removing layer1 preview buttons: {e}")
+            else:
+                # Switch to grey center icon and create 8 placeholder buttons in layer 1
+                self.center_btn.setIcon(self.icon_grey)
+                try:
+                    # Clean any existing (defensive)
+                    for b in self.layer1_buttons:
+                        try:
+                            b.hide()
+                            b.setParent(None)
+                            b.deleteLater()
+                        except Exception:
+                            pass
+                    self.layer1_buttons = []
+
+                    btn_size = 24
+                    center = self.rect().center()
+                    cx = center.x()
+                    cy = center.y()
+                    max_radius = min(self.width(), self.height()) // 2 - 10
+                    r = int(max_radius * 0.33)
+                    angle_step = 360 / 8
+
+                    # Define a small PreviewButton subclass so enter/leave events reliably change background.
+                    class PreviewButton(QPushButton):
+                        def __init__(self, *a, **kw):
+                            super().__init__(*a, **kw)
+                            try:
+                                self.setFlat(True)
+                                # Default transparent background
+                                self.setStyleSheet("border: none; background: transparent;")
+                                # Ensure hover events are enabled
+                                self.setAttribute(Qt.WA_Hover, True)
+                                self.setMouseTracking(True)
+                            except Exception:
+                                pass
+
+                        def enterEvent(self, ev):
+                            try:
+                                self.setStyleSheet("border: none; background: #e8e8e8; border-radius: 12px;")
+                            except Exception:
+                                pass
+                            super().enterEvent(ev)
+
+                        def leaveEvent(self, ev):
+                            try:
+                                self.setStyleSheet("border: none; background: transparent;")
+                            except Exception:
+                                pass
+                            super().leaveEvent(ev)
+
+                    for i in range(8):
+                        theta = math.radians(angle_step * i)
+                        x = int(cx + r * math.cos(theta) - btn_size // 2)
+                        y = int(cy + r * math.sin(theta) - btn_size // 2)
+                        b = PreviewButton(self)
+                        b.setFixedSize(btn_size, btn_size)
+                        try:
+                            icon = QIcon("assets/add_new_button_green.svg")
+                            b.setIcon(icon)
+                            b.setIconSize(QSize(btn_size, btn_size))
+                        except Exception:
+                            pass
+                        b.setGeometry(x, y, btn_size, btn_size)
+                        # Open per-button settings window (creates a blank window for this preview button)
+                        b.clicked.connect(lambda _checked=False, _idx=i: self._open_button_settings(_idx))
+                        try:
+                            # Install event filter so RadialPreview.eventFilter can also handle hover as a fallback
+                            b.installEventFilter(self)
+                        except Exception:
+                            pass
+                        b.show()
+                        self.layer1_buttons.append(b)
+                except Exception as e:
+                    debug_write(f"Error creating layer1 preview buttons: {e}")
+        except Exception as e:
+            debug_write(f"RadialPreview toggle error: {e}")
+
+    def eventFilter(self, obj, event):
+        """
+        Handle Enter/Leave events on the center button and layer-1 preview buttons to show/hide
+        the tooltip and to apply the light-grey hover background reliably.
+        """
+        try:
+            from PyQt5.QtWidgets import QToolTip
+
+            # Center button handling (tooltip + hover background)
+            if obj is self.center_btn:
+                if event.type() == QEvent.Enter:
+                    # Show tooltip at the button center
+                    try:
+                        pos = self.center_btn.mapToGlobal(self.center_btn.rect().center())
+                        QToolTip.showText(pos, getattr(self.center_btn, "_tooltip_text", "") or "", self.center_btn)
+                    except Exception:
+                        pass
+                    # Apply explicit hover background so stylesheet rules render
+                    try:
+                        self.center_btn.setStyleSheet("border: none; background: #f0f0f0; border-radius: 15px;")
+                    except Exception:
+                        pass
+                    return True
+                elif event.type() == QEvent.Leave:
+                    try:
+                        QToolTip.hideText()
+                    except Exception:
+                        pass
+                    # Restore original transparent style while keeping hover rule
+                    try:
+                        self.center_btn.setStyleSheet(
+                            "border: none; background: transparent;"
+                            "QPushButton:hover { background-color: #f0f0f0; border-radius: 15px; }"
+                        )
+                    except Exception:
+                        pass
+                    return True
+
+            # Layer-1 preview buttons: change background on hover (and leave)
+            if hasattr(self, "layer1_buttons") and obj in self.layer1_buttons:
+                try:
+                    # Treat both Enter/HoverEnter as hover start, and Leave/HoverLeave as hover end.
+                    if event.type() in (QEvent.Enter, QEvent.HoverEnter):
+                        try:
+                            obj.setStyleSheet("border: none; background: #e8e8e8; border-radius: 12px;")
+                        except Exception:
+                            pass
+                        return True
+                    elif event.type() in (QEvent.Leave, QEvent.HoverLeave):
+                        try:
+                            obj.setStyleSheet(
+                                "border: none; background: transparent;"
+                                "QPushButton:hover { background-color: #e8e8e8; border-radius: 12px; }"
+                            )
+                        except Exception:
+                            pass
+                        return True
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Provide a helper to open a blank settings window for a specific preview button.
+        def _open_button_settings_inner(idx):
+            try:
+                win = self._button_settings_windows.get(idx)
+                if win is None or not win.isVisible():
+                    from PyQt5.QtWidgets import QWidget
+                    win = QWidget()
+                    win.setWindowTitle(f"Button Settings — L1-{idx}")
+                    win.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+                    win.setMinimumSize(300, 200)
+                    self._button_settings_windows[idx] = win
+                try:
+                    win.show()
+                    win.raise_()
+                    win.activateWindow()
+                except Exception:
+                    pass
+            except Exception as e:
+                debug_write(f"Error opening button settings window for idx {idx}: {e}")
+
+        # Bind the helper as an instance method so it can be called from button callbacks
+        try:
+            setattr(self, "_open_button_settings", _open_button_settings_inner)
+        except Exception:
+            pass
+
+        return super().eventFilter(obj, event)
 
     def paintEvent(self, event):
         try:
@@ -136,8 +374,8 @@ class SettingsWindow(QWidget):
         # Buttons tab - include a RadialPreview showing ring outlines only
         buttons_tab = QWidget()
         btn_layout = QVBoxLayout(buttons_tab)
-        # Add the radial preview centered in the tab
-        preview = RadialPreview(self)
+        # Add the radial preview centered in the tab (parent must be the tab so events are routed correctly)
+        preview = RadialPreview(buttons_tab)
         btn_layout.addStretch(1)
         btn_layout.addWidget(preview, 0, Qt.AlignCenter)
         btn_layout.addStretch(1)
