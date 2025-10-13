@@ -137,6 +137,80 @@ class RadialPreview(QWidget):
             self.layer1_buttons = []
             # Keep references to per-button settings windows so they are not GC'd
             self._button_settings_windows = {}
+
+            # Load existing button config and render layer-1 buttons inside the preview:
+            try:
+                cfg = {}
+                try:
+                    with open('user_config.json', 'r', encoding='utf-8') as f:
+                        cfg = json.load(f)
+                except Exception:
+                    cfg = {}
+                buttons_cfg = cfg.get('buttons', [])
+                # Helper to parse IDs like "B2L1" -> (2,1)
+                def _parse_id(bid: str):
+                    try:
+                        if not isinstance(bid, str):
+                            return None
+                        if bid.startswith('B') and 'L' in bid:
+                            parts = bid[1:].split('L')
+                            num = int(parts[0])
+                            layer = int(parts[1])
+                            return num, layer
+                    except Exception:
+                        pass
+                    return None
+
+                # Create up to num_layer1 preview slots (use same layout as main UI layer1)
+                preview_btn_size = 24
+                center_pt = self.rect().center()
+                cx = center_pt.x()
+                cy = center_pt.y()
+                radius = int((min(self.width(), self.height()) // 2 - 10) * 0.33)
+                angle_step = 360 / max(1, self.num_layer1)
+
+                # Build occupied mapping for layer-1 from config (slot_idx -> entry)
+                occupied = {}
+                for entry in buttons_cfg:
+                    bid = entry.get('id')
+                    parsed = _parse_id(bid)
+                    if parsed is None:
+                        continue
+                    num, layer = parsed
+                    if layer != 1:
+                        continue
+                    idx = max(0, min(self.num_layer1 - 1, num - 1))
+                    occupied[idx] = entry
+
+                # Render configured buttons equidistantly so positions match the main UI placement rules.
+                try:
+                    entries = sorted(occupied.items(), key=lambda t: t[0])  # list of (slot_idx, entry)
+                    k = len(entries)
+                    if k > 0:
+                        start_angle = -90.0  # first at 12 o'clock
+                        angle_step_cfg = 360.0 / float(k)
+                        for j, (orig_idx, entry) in enumerate(entries):
+                            theta = math.radians(start_angle + j * angle_step_cfg)
+                            x = int(cx + radius * math.cos(theta) - preview_btn_size // 2)
+                            y = int(cy + radius * math.sin(theta) - preview_btn_size // 2)
+                            try:
+                                gb = QPushButton(self)
+                                gb.setFixedSize(preview_btn_size, preview_btn_size)
+                                gb.setStyleSheet("background-color: lightgray; border-radius: 12px; border: none;")
+                                gb.setGeometry(x, y, preview_btn_size, preview_btn_size)
+                                # clicking does nothing for now
+                                gb.clicked.connect(lambda _checked=False: None)
+                                gb.show()
+                                self.layer1_buttons.append(gb)
+                            except Exception:
+                                pass
+                    # Do not render add-new placeholders here by default.
+                    # The central preview toggle will create add-new preview buttons when activated.
+                except Exception as e:
+                    debug_write(f"RadialPreview initial layer1 render error (placement): {e}")
+            except Exception as e:
+                debug_write(f"RadialPreview initial layer1 render error: {e}")
+
             try:
                 # Install an event filter so we can reliably show the tooltip and
                 # toggle hover styling even if the widget hierarchy interferes.
@@ -307,11 +381,75 @@ class RadialPreview(QWidget):
             try:
                 win = self._button_settings_windows.get(idx)
                 if win is None or not win.isVisible():
-                    from PyQt5.QtWidgets import QWidget
-                    win = QWidget()
+                    # Create the per-button settings window as a child/owned window of the main Settings window
+                    # so closing it does NOT quit the application or close the main Settings window.
+                    from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+                    parent_window = self.window() if hasattr(self, "window") else None
+                    try:
+                        win = QWidget(parent_window, Qt.Window | Qt.WindowStaysOnTopHint)
+                    except Exception:
+                        # Fallback to no-parent top-level if something fails
+                        win = QWidget()
+                    # Prevent this per-button settings window from causing the whole application
+                    # to quit when it is closed (don't trigger quitOnLastWindowClosed).
+                    try:
+                        win.setAttribute(Qt.WA_QuitOnClose, False)
+                    except Exception:
+                        pass
                     win.setWindowTitle(f"Button Settings — L1-{idx}")
-                    win.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
                     win.setMinimumSize(300, 200)
+                    # Add a small placeholder label so the window is not completely empty
+                    try:
+                        from PyQt5.QtWidgets import QVBoxLayout, QLabel, QCheckBox, QPushButton
+                        layout = QVBoxLayout(win)
+                        layout.addWidget(QLabel(f"Settings for button L1-{idx}"))
+                        # Two-way toggle (Parent <-> Child). Default checked = Parent.
+                        try:
+                            toggle = QCheckBox("Parent (checked) / Child (unchecked)")
+                            toggle.setChecked(True)
+                            layout.addWidget(toggle)
+                        except Exception:
+                            pass
+
+                        # Save button: persists minimal config (id and state) into user_config.json
+                        try:
+                            save_btn = QPushButton("Save", win)
+                            def _save_button_config():
+                                try:
+                                    btn_id = f"B{idx+1}L1"
+                                    state = "parent" if toggle.isChecked() else "child"
+                                    cfg = {}
+                                    try:
+                                        with open('user_config.json', 'r', encoding='utf-8') as f:
+                                            cfg = json.load(f)
+                                    except Exception:
+                                        cfg = {}
+                                    buttons = cfg.get('buttons', [])
+                                    # Remove any existing entry with same id
+                                    try:
+                                        buttons = [b for b in buttons if b.get('id') != btn_id]
+                                    except Exception:
+                                        buttons = buttons or []
+                                    # Append minimal config (keep other keys empty for now)
+                                    buttons.append({
+                                        "id": btn_id,
+                                        "state": state,
+                                        "parent": None
+                                    })
+                                    cfg['buttons'] = buttons
+                                    with open('user_config.json', 'w', encoding='utf-8') as f:
+                                        json.dump(cfg, f, ensure_ascii=False, indent=2)
+                                    debug_write(f"Saved button config: {btn_id} state={state}")
+                                except Exception as e:
+                                    debug_write(f"Error saving button config for {idx}: {e}")
+                            save_btn.clicked.connect(_save_button_config)
+                            layout.addWidget(save_btn)
+                        except Exception:
+                            pass
+
+                        win.setLayout(layout)
+                    except Exception:
+                        pass
                     self._button_settings_windows[idx] = win
                 try:
                     win.show()
@@ -358,30 +496,92 @@ class SettingsWindow(QWidget):
         # Create a normal top-level window (with title bar) that stays on top.
         super().__init__(parent, Qt.Window | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Settings")
-        self.setMinimumSize(400, 300)
+        self.setMinimumSize(500, 360)
 
         # Lazy/import inside ctor to avoid changing top-level imports
-        from PyQt5.QtWidgets import QTabWidget, QVBoxLayout, QLabel
+        from PyQt5.QtWidgets import QTabWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QScrollArea, QWidget as QtWidget
 
-        # Create a tab widget with two tabs: "General" and "Buttons"
+        # Create a tab widget containing General + Layer tabs (Layer 1, Layer 2, Layer 3)
         self.tabs = QTabWidget(self)
 
-        # General tab
+        # General tab (left empty per user request)
         general_tab = QWidget()
-        gen_layout = QVBoxLayout(general_tab)
-        gen_layout.addWidget(QLabel("General settings will appear here."))
 
-        # Buttons tab - include a RadialPreview showing ring outlines only
-        buttons_tab = QWidget()
-        btn_layout = QVBoxLayout(buttons_tab)
-        # Add the radial preview centered in the tab (parent must be the tab so events are routed correctly)
-        preview = RadialPreview(buttons_tab)
-        btn_layout.addStretch(1)
-        btn_layout.addWidget(preview, 0, Qt.AlignCenter)
-        btn_layout.addStretch(1)
+        # Helper to build a layer tab containing N label+button rows.
+        # Each "Configure" button opens a small per-button settings window (empty for now).
+        def _build_layer_tab(count: int, layer_num: int):
+            container = QtWidget()
+            layout = QVBoxLayout(container)
+            # Use a scroll area to keep the tab usable when there are many rows
+            scroll = QScrollArea(container)
+            scroll.setWidgetResizable(True)
+            content = QtWidget()
+            content_layout = QVBoxLayout(content)
+            content.setLayout(content_layout)
 
+            for i in range(1, count + 1):
+                row = QHBoxLayout()
+                lbl = QLabel(f"Button {i}")
+                cfg_btn = QPushButton("Configure")
+
+                # Create a per-button settings window when Configure is clicked.
+                # Capture layer_num and i using a closure to avoid late-binding issues.
+                def _make_open(layer_n, idx_n):
+                    def _open(_checked=False):
+                        try:
+                            # Parent the new window to the SettingsWindow so closing it won't quit the app.
+                            parent_window = self
+                            try:
+                                win = QWidget(parent_window, Qt.Window | Qt.WindowStaysOnTopHint)
+                            except Exception:
+                                win = QWidget()
+                            # Prevent this per-button settings window from causing the whole application to quit
+                            try:
+                                win.setAttribute(Qt.WA_QuitOnClose, False)
+                            except Exception:
+                                pass
+                            # Name the window after the button and layer number with "Settings"
+                            win.setWindowTitle(f"Button L{layer_n}-{idx_n} Settings")
+                            win.setMinimumSize(300, 200)
+                            # Empty layout for now
+                            try:
+                                from PyQt5.QtWidgets import QVBoxLayout
+                                win.setLayout(QVBoxLayout())
+                            except Exception:
+                                pass
+                            try:
+                                win.show()
+                                win.raise_()
+                                win.activateWindow()
+                            except Exception:
+                                pass
+                        except Exception as e:
+                            debug_write(f"Failed to open per-button settings window L{layer_n}-{idx_n}: {e}")
+                    return _open
+
+                cfg_btn.clicked.connect(_make_open(layer_num, i))
+
+                row.addWidget(lbl)
+                row.addStretch(1)
+                row.addWidget(cfg_btn)
+                content_layout.addLayout(row)
+
+            # Add stretch so rows align to top
+            content_layout.addStretch(1)
+            scroll.setWidget(content)
+            layout.addWidget(scroll)
+            return container
+
+        # Layer tabs with label-button pairs
+        layer1_tab = _build_layer_tab(8, 1)
+        layer2_tab = _build_layer_tab(16, 2)
+        layer3_tab = _build_layer_tab(24, 3)
+
+        # Add tabs in the desired order
         self.tabs.addTab(general_tab, "General")
-        self.tabs.addTab(buttons_tab, "Buttons")
+        self.tabs.addTab(layer1_tab, "Layer 1")
+        self.tabs.addTab(layer2_tab, "Layer 2")
+        self.tabs.addTab(layer3_tab, "Layer 3")
 
         # Main layout for the settings window
         main_layout = QVBoxLayout(self)
@@ -624,14 +824,15 @@ class UIRenderer(QWidget):
             cx = (self.width() - 30) // 2
             cy = (self.height() - 30) // 2
             self.add_first_button.setGeometry(cx, cy, 30, 30)
-            # For now clicking the add button opens the settings window and selects the Buttons tab
-            self.add_first_button.clicked.connect(lambda _checked=False: self._open_settings_window("Buttons"))
+            # For now clicking the add button opens the settings window and selects the Layer 1 tab
+            self.add_first_button.clicked.connect(lambda _checked=False: self._open_settings_window("Layer 1"))
             debug_write("Added center 'add first button' (tooltip delay 1000ms)")
         except Exception as e:
             debug_write(f"Error creating center add button: {e}")
 
     def _load_user_buttons(self):
-        # Load button configuration from user_config.json. If no buttons configured, add center add button.
+        # Load button configuration from user_config.json and build main UI layer buttons.
+        # If no config exists, show the center add button (legacy behavior).
         try:
             cfg = {}
             try:
@@ -640,20 +841,96 @@ class UIRenderer(QWidget):
             except Exception:
                 cfg = {}
             buttons_cfg = cfg.get('buttons', [])
+
+            # Helper to parse IDs like "B2L1" -> (2,1)
+            def _parse_id(bid: str):
+                try:
+                    if not isinstance(bid, str):
+                        return None
+                    if bid.startswith('B') and 'L' in bid:
+                        parts = bid[1:].split('L')
+                        num = int(parts[0])
+                        layer = int(parts[1])
+                        return num, layer
+                except Exception:
+                    pass
+                return None
+
             if not buttons_cfg:
                 # No configured buttons: intentionally leave radial area empty and show a center add button
                 try:
                     self._add_center_add_button()
                 except Exception as e:
                     debug_write(f"Failed to add center add button: {e}")
-            else:
-                # There is button config; build radial buttons (existing behavior)
-                # For now, fallback to the standard radial initialization which creates placeholders.
-                # A full mapping from config -> buttons will be implemented later.
+                return
+
+            # There is button config -> render layer 1 in the main UI as grey circles for configured entries
+            try:
+                # Clear any existing self.buttons if present
                 try:
-                    self._init_radial_buttons()
+                    for b in getattr(self, 'buttons', []):
+                        try:
+                            b.hide()
+                            b.setParent(None)
+                            b.deleteLater()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                self.buttons = []
+
+                # Determine center used elsewhere in this widget (matches _init_radial_buttons layout)
+                center_x = 175
+                center_y = 175
+                button_size = 30
+
+                # Compute occupied indices for layer 1 from config
+                occupied = {}
+                for entry in buttons_cfg:
+                    bid = entry.get('id')
+                    parsed = _parse_id(bid)
+                    if parsed is None:
+                        continue
+                    num, layer = parsed
+                    if layer == 1:
+                        idx = max(0, min(self.num_layer1 - 1, num - 1))
+                        occupied[idx] = entry
+
+                # Place configured layer-1 buttons around radius 50.
+                # Buttons are positioned equidistantly based on how many configured entries exist
+                # in the layer (so N buttons will be spaced by 360/N degrees, with the first at 12 o'clock).
+                try:
+                    radius = 50
+                    # Build a stable ordered list of configured entries for this layer.
+                    # occupied maps computed slot idx -> entry; sort by that computed idx so placement is deterministic.
+                    entries = sorted(occupied.items(), key=lambda t: t[0])  # list of (slot_idx, entry)
+                    k = len(entries)
+                    if k == 0:
+                        # Nothing to render for this layer
+                        pass
+                    else:
+                        start_angle = -90.0  # place first button at 12 o'clock
+                        angle_step = 360.0 / float(k)
+                        for j, (orig_idx, entry) in enumerate(entries):
+                            theta = math.radians(start_angle + j * angle_step)
+                            x = int(center_x + radius * math.cos(theta) - button_size // 2)
+                            y = int(center_y + radius * math.sin(theta) - button_size // 2)
+                            try:
+                                gb = QPushButton(self)
+                                gb.setFixedSize(button_size, button_size)
+                                gb.setStyleSheet("background-color: lightgray; border-radius: 15px; border: none;")
+                                gb.setGeometry(x, y, button_size, button_size)
+                                # no-op on click for now (placeholder)
+                                gb.clicked.connect(lambda _checked=False: None)
+                                gb.show()
+                                self.buttons.append(gb)
+                            except Exception as e:
+                                debug_write(f"Error creating configured main UI button at slot {orig_idx}: {e}")
                 except Exception as e:
-                    debug_write(f"Failed to initialize radial buttons from config: {e}")
+                    debug_write(f"Error rendering configured layer-1 buttons: {e}")
+            except Exception as e:
+                debug_write(f"Failed to render main UI layer1 from config: {e}")
+
         except Exception as e:
             debug_write(f"Error loading user buttons: {e}")
 
