@@ -60,6 +60,33 @@ def on_click(x, y, button, pressed):
                     except Exception:
                         inside = False
                 debug_write(f"Inside main UI or settings: {inside}")
+
+                # Extra safeguard: if the click falls inside any top-level Qt widget (picker, other windows),
+                # treat it as inside so we don't erroneously hide the main UI when user interacts with popups.
+                try:
+                    from PyQt5.QtWidgets import QApplication
+                    app = QApplication.instance()
+                    if app is not None:
+                        for w in app.topLevelWidgets():
+                            try:
+                                # Skip the main UI widget itself if already detected
+                                if w is ui:
+                                    continue
+                                try:
+                                    g = w.frameGeometry()
+                                except Exception:
+                                    g = w.geometry()
+                                if g is None:
+                                    continue
+                                if g.x() <= x <= g.x() + g.width() and g.y() <= y <= g.y() + g.height():
+                                    debug_write(f"Click is inside top-level widget: {getattr(w, 'windowTitle', lambda: '')()}")
+                                    inside = True
+                                    break
+                            except Exception:
+                                continue
+                except Exception:
+                    pass
+
                 if not inside:
                     debug_write("Hiding UI")
                     bridge.hideRequest.emit()

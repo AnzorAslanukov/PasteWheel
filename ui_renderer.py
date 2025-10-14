@@ -3,6 +3,7 @@ from PyQt5.QtGui import QIcon, QGuiApplication
 from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal, QSize, QTimer, QEvent
 import math
 import json
+import time
 
 def debug_write(msg, append=True):
     mode = 'a' if append else 'w'
@@ -174,11 +175,30 @@ class SettingsWindow(QWidget):
                                                         _emoji_lib = None
                                                         has_emoji_lib = False
 
-                                                    picker = QWidget(win, Qt.Window | Qt.WindowStaysOnTopHint)
+                                                    picker = QWidget(None, Qt.Window | Qt.WindowStaysOnTopHint)
                                                     picker.setWindowTitle("Emoji Picker")
                                                     picker.setMinimumSize(300, 400)
                                                     try:
                                                         picker.setAttribute(Qt.WA_QuitOnClose, False)
+                                                    except Exception:
+                                                        pass
+                                                    # Ensure closing the picker via the titlebar X does not propagate closes to other windows.
+                                                    # Intercept the closeEvent to hide + schedule deletion instead of allowing a default close.
+                                                    try:
+                                                        def _picker_close_event(event):
+                                                            try:
+                                                                picker.hide()
+                                                            except Exception:
+                                                                pass
+                                                            try:
+                                                                picker.deleteLater()
+                                                            except Exception:
+                                                                pass
+                                                            try:
+                                                                event.ignore()
+                                                            except Exception:
+                                                                pass
+                                                        picker.closeEvent = _picker_close_event
                                                     except Exception:
                                                         pass
 
@@ -188,6 +208,53 @@ class SettingsWindow(QWidget):
                                                     search = QLineEdit(picker)
                                                     search.setPlaceholderText("Search emoji by keyword...")
                                                     main_layout.addWidget(search)
+
+                                                    # Category toggle buttons - stacked into two rows of five.
+                                                    # When toggled, these will filter which emojis are shown.
+                                                    cat_buttons = []
+                                                    try:
+                                                        from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
+                                                        cat_container = QWidget(picker)
+                                                        v_cat_layout = QVBoxLayout(cat_container)
+                                                        v_cat_layout.setContentsMargins(0, 0, 0, 0)
+                                                        v_cat_layout.setSpacing(6)
+                                                        categories = [
+                                                            "Smileys & Emotion",
+                                                            "People & Body",
+                                                            "Animals & Nature",
+                                                            "Food & Drink",
+                                                            "Travel & Places",
+                                                            "Activities",
+                                                            "Objects",
+                                                            "Symbols",
+                                                            "Flags",
+                                                            "Kaomoji / Emoticons"
+                                                        ]
+                                                        row1 = QHBoxLayout()
+                                                        row1.setContentsMargins(0, 0, 0, 0)
+                                                        row1.setSpacing(6)
+                                                        row2 = QHBoxLayout()
+                                                        row2.setContentsMargins(0, 0, 0, 0)
+                                                        row2.setSpacing(6)
+                                                        for idx, cname in enumerate(categories):
+                                                            try:
+                                                                btn = QPushButton(cname)
+                                                                btn.setCheckable(True)
+                                                                btn.setFixedHeight(26)
+                                                                # placeholder handler; real filtering wired below
+                                                                cat_buttons.append((cname, btn))
+                                                                if idx < 5:
+                                                                    row1.addWidget(btn)
+                                                                else:
+                                                                    row2.addWidget(btn)
+                                                            except Exception:
+                                                                pass
+                                                        v_cat_layout.addLayout(row1)
+                                                        v_cat_layout.addLayout(row2)
+                                                        main_layout.addWidget(cat_container)
+                                                    except Exception:
+                                                        # If anything goes wrong adding category buttons, continue without them
+                                                        cat_buttons = []
 
                                                     # List of emoji results
                                                     list_w = QListWidget(picker)
@@ -207,6 +274,47 @@ class SettingsWindow(QWidget):
                                                             "😘","😜","🤪","🤔","😴","😎","🤩","😇","🤖","👍",
                                                             "👎","🙌","👏","🙏","🔥","⭐","💡","🎉","💯","✔️"
                                                         ]
+
+                                                    # Simple categorizer based on emoji names / unicode name keywords
+                                                    def categorize_emoji(ch: str, name: str):
+                                                        name_l = (name or "").lower()
+                                                        cats = []
+                                                        # Smileys & Emotion
+                                                        if any(k in name_l for k in ("face", "smile", "grin", "sad", "cry", "angry", "laugh", "love", "blush", "smiling")):
+                                                            cats.append("Smileys & Emotion")
+                                                        # People & Body
+                                                        if any(k in name_l for k in ("person", "man", "woman", "boy", "girl", "hand", "people", "person")):
+                                                            cats.append("People & Body")
+                                                        # Animals & Nature
+                                                        if any(k in name_l for k in ("cat", "dog", "animal", "rabbit", "bird", "fish", "cow", "horse", "paw", "bear", "monkey")):
+                                                            cats.append("Animals & Nature")
+                                                        # Food & Drink
+                                                        if any(k in name_l for k in ("food", "drink", "beverage", "apple", "pizza", "burger", "coffee", "tea", "cake", "wine", "fork", "spoon")):
+                                                            cats.append("Food & Drink")
+                                                        # Travel & Places
+                                                        if any(k in name_l for k in ("car", "plane", "airplane", "train", "ship", "house", "building", "mountain", "beach", "hotel", "road")):
+                                                            cats.append("Travel & Places")
+                                                        # Activities
+                                                        if any(k in name_l for k in ("ball", "sport", "guitar", "music", "trophy", "game", "medal")):
+                                                            cats.append("Activities")
+                                                        # Objects
+                                                        if any(k in name_l for k in ("phone", "computer", "light", "tool", "book", "key", "lock", "camera", "envelope")):
+                                                            cats.append("Objects")
+                                                        # Symbols
+                                                        if any(k in name_l for k in ("heart", "star", "symbol", "arrow", "warning", "sign", "check", "cross")):
+                                                            cats.append("Symbols")
+                                                        # Flags - detect regional indicator symbols or the word 'flag'
+                                                        try:
+                                                            import unicodedata as _ud
+                                                            if "flag" in name_l:
+                                                                cats.append("Flags")
+                                                            else:
+                                                                # Regional indicator letters are used for flags (skip detailed check here)
+                                                                pass
+                                                        except Exception:
+                                                            pass
+                                                        # Kaomoji / Emoticons - not typical for unicode emoji, leave empty
+                                                        return cats
 
                                                     # Helper to get a readable name for an emoji
                                                     def emoji_name(ch: str) -> str:
@@ -231,26 +339,47 @@ class SettingsWindow(QWidget):
                                                                     pass
                                                         else:
                                                             try:
-                                                                # unicodedata.name returns names like "GRINNING FACE"
                                                                 name = _unicodedata.name(ch)
                                                                 name = name.lower()
-                                                                # Replace multiple spaces/underscores with single space
                                                                 name = name.replace('_', ' ')
                                                             except Exception:
                                                                 name = ""
                                                         return name
 
-                                                    # Helper to populate list based on filter text
+                                                    # Build category -> set(mapping) for quick lookup
+                                                    category_map = {c: set() for c, _ in cat_buttons} if cat_buttons else {}
+                                                    for ch in all_emojis:
+                                                        try:
+                                                            nm = emoji_name(ch)
+                                                        except Exception:
+                                                            nm = ""
+                                                        cats = categorize_emoji(ch, nm)
+                                                        for c in cats:
+                                                            if c in category_map:
+                                                                category_map[c].add(ch)
+
+                                                    # Helper to populate list based on filter text and selected categories
                                                     def populate(filter_text: str):
                                                         list_w.clear()
                                                         ft = (filter_text or "").strip().lower()
                                                         added = 0
-                                                        # If no filter, show a small curated set (first 200) to avoid huge lists
+                                                        # Determine active categories
+                                                        active_cats = [name for name, btn in cat_buttons if btn.isChecked()] if cat_buttons else []
                                                         for ch in all_emojis:
                                                             try:
                                                                 name = emoji_name(ch)
                                                             except Exception:
                                                                 name = ""
+                                                            # If categories are active, skip emojis not in any active category
+                                                            if active_cats:
+                                                                # If emoji belongs to any active category, allow it; otherwise skip
+                                                                allowed = False
+                                                                for ac in active_cats:
+                                                                    if ch in category_map.get(ac, set()):
+                                                                        allowed = True
+                                                                        break
+                                                                if not allowed:
+                                                                    continue
                                                             if not ft or ft in (name or "").lower():
                                                                 display_name = name or ""
                                                                 item = QListWidgetItem(f"{ch}  {display_name}")
@@ -271,6 +400,16 @@ class SettingsWindow(QWidget):
                                                             pass
                                                     search.textChanged.connect(on_search)
 
+                                                    # Wire category buttons to update the list when toggled
+                                                    try:
+                                                        for _, btn in cat_buttons:
+                                                            try:
+                                                                btn.clicked.connect(lambda _checked=False: populate(search.text()))
+                                                            except Exception:
+                                                                pass
+                                                    except Exception:
+                                                        pass
+
                                                     # When an emoji is selected, set it into emoji_display and close picker
                                                     def on_item_clicked(item):
                                                         try:
@@ -281,7 +420,16 @@ class SettingsWindow(QWidget):
                                                             except Exception:
                                                                 pass
                                                             try:
-                                                                picker.close()
+                                                                # Hide and schedule deletion instead of close() to avoid
+                                                                # triggering unwanted window close propagation in some environments.
+                                                                try:
+                                                                    picker.hide()
+                                                                except Exception:
+                                                                    pass
+                                                                try:
+                                                                    picker.deleteLater()
+                                                                except Exception:
+                                                                    pass
                                                             except Exception:
                                                                 pass
                                                         except Exception:
@@ -289,6 +437,33 @@ class SettingsWindow(QWidget):
                                                     list_w.itemClicked.connect(on_item_clicked)
 
                                                     try:
+                                                        # Register picker as a transient window on the top-level UI so
+                                                        # clicks inside the picker are considered "inside" the UI area.
+                                                        try:
+                                                            top = win
+                                                            # Walk up parent chain to find the UIRenderer/top-level object that owns SettingsWindow
+                                                            while top is not None:
+                                                                # Heuristic: UIRenderer has attribute 'window_bounds'
+                                                                if hasattr(top, 'window_bounds'):
+                                                                    try:
+                                                                        if not hasattr(top, '_transient_windows'):
+                                                                            top._transient_windows = []
+                                                                        if picker not in top._transient_windows:
+                                                                            top._transient_windows.append(picker)
+                                                                        # Clean up registry when picker is destroyed
+                                                                        try:
+                                                                            picker.destroyed.connect(lambda _=None, owner=top, w=picker: owner._transient_windows.remove(w) if (hasattr(owner, '_transient_windows') and w in owner._transient_windows) else None)
+                                                                        except Exception:
+                                                                            pass
+                                                                    except Exception:
+                                                                        pass
+                                                                    break
+                                                                try:
+                                                                    top = top.parent()
+                                                                except Exception:
+                                                                    break
+                                                        except Exception:
+                                                            pass
                                                         picker.show()
                                                         picker.raise_()
                                                         picker.activateWindow()
@@ -428,6 +603,8 @@ class UIRenderer(QWidget):
         self._settings_window = None
         # Container for configured radial buttons (may be empty if no config present)
         self.buttons = []
+        # Transient popup windows (emoji pickers, helpers) that should be treated as part of the UI
+        self._transient_windows = []
 
         # Button layout configuration from test.py
         # Layer 1: min 4, max 8 (using 8 here)
@@ -552,11 +729,12 @@ class UIRenderer(QWidget):
 
     def is_point_in_ui_or_settings(self, x: int, y: int) -> bool:
         try:
-            # Check main UI bounds
+            # Check main UI bounds first
             if self.window_bounds is not None:
                 x1, y1, x2, y2 = self.window_bounds
                 if x1 <= x <= x2 and y1 <= y <= y2:
                     return True
+
             # Check settings window bounds (if visible)
             if self._settings_window is not None and self._settings_window.isVisible():
                 try:
@@ -567,6 +745,31 @@ class UIRenderer(QWidget):
                     gx, gy, gw, gh = geom.x(), geom.y(), geom.width(), geom.height()
                     if gx <= x <= gx + gw and gy <= y <= gy + gh:
                         return True
+
+            # Check any registered transient windows (emoji picker, helpers, etc.)
+            try:
+                tw = getattr(self, '_transient_windows', None)
+                if tw:
+                    for w in list(tw):
+                        try:
+                            if w is None:
+                                continue
+                            if not getattr(w, 'isVisible', lambda: False)():
+                                continue
+                            try:
+                                g = w.frameGeometry()
+                            except Exception:
+                                g = w.geometry()
+                            if g is None:
+                                continue
+                            gx, gy, gw, gh = g.x(), g.y(), g.width(), g.height()
+                            if gx <= x <= gx + gw and gy <= y <= gy + gh:
+                                return True
+                        except Exception:
+                            continue
+            except Exception:
+                pass
+
         except Exception:
             pass
         return False
