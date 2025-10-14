@@ -134,12 +134,219 @@ class SettingsWindow(QWidget):
                             # Name the window after the button and layer number with "Settings"
                             win.setWindowTitle(f"Button L{layer_n}-{idx_n} Settings")
                             win.setMinimumSize(300, 200)
-                            # Empty layout for now
+                            # Build a minimal layout: Label input (max 3 chars), Parent/Child toggle + Save button (no-op for now)
                             try:
-                                from PyQt5.QtWidgets import QVBoxLayout
-                                win.setLayout(QVBoxLayout())
+                                from PyQt5.QtWidgets import QVBoxLayout, QCheckBox, QPushButton, QSpacerItem, QSizePolicy, QLineEdit, QLabel
+                                layout = QVBoxLayout()
+
+                                # Label input (max 3 chars)
+                                try:
+                                    label_row = QLineEdit()
+                                    label_row.setMaxLength(3)
+                                    label_row.setPlaceholderText("Label (max 3 chars)")
+                                    # Wrap with a small QLabel above the input for clarity
+                                    layout.addWidget(QLabel("Label:"))
+                                    layout.addWidget(label_row)
+                                    # Alternative input: emoji/emoticon button
+                                    try:
+                                        layout.addWidget(QLabel("or"))
+                                        emoji_btn = QPushButton("😀 Emoji/Emoticon")
+                                        # Emoji display label (will show the selected emoji)
+                                        try:
+                                            emoji_display = QLabel("")
+                                            emoji_display.setAlignment(Qt.AlignCenter)
+                                        except Exception:
+                                            emoji_display = QLabel("")
+                                        layout.addWidget(emoji_btn)
+                                        layout.addWidget(emoji_display)
+
+                                        # Open an emoji picker window when emoji_btn is clicked
+                                        try:
+                                            def _open_emoji_picker():
+                                                try:
+                                                    from PyQt5.QtWidgets import QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem
+                                                    import unicodedata as _unicodedata
+                                                    # Try to import the optional 'emoji' library; if not present we'll fall back to a small curated set
+                                                    try:
+                                                        import emoji as _emoji_lib
+                                                        has_emoji_lib = True
+                                                    except Exception:
+                                                        _emoji_lib = None
+                                                        has_emoji_lib = False
+
+                                                    picker = QWidget(win, Qt.Window | Qt.WindowStaysOnTopHint)
+                                                    picker.setWindowTitle("Emoji Picker")
+                                                    picker.setMinimumSize(300, 400)
+                                                    try:
+                                                        picker.setAttribute(Qt.WA_QuitOnClose, False)
+                                                    except Exception:
+                                                        pass
+
+                                                    main_layout = QVBoxLayout(picker)
+
+                                                    # Search bar
+                                                    search = QLineEdit(picker)
+                                                    search.setPlaceholderText("Search emoji by keyword...")
+                                                    main_layout.addWidget(search)
+
+                                                    # List of emoji results
+                                                    list_w = QListWidget(picker)
+                                                    list_w.setUniformItemSizes(True)
+                                                    main_layout.addWidget(list_w)
+
+                                                    # Build emoji list (try library -> fallback curated list)
+                                                    if has_emoji_lib:
+                                                        try:
+                                                            all_emojis = list(_emoji_lib.EMOJI_DATA.keys())
+                                                        except Exception:
+                                                            all_emojis = []
+                                                    else:
+                                                        # Curated fallback emoji list (common emojis)
+                                                        all_emojis = [
+                                                            "😀","😃","😄","😁","😆","😉","😊","🙂","🙃","😍",
+                                                            "😘","😜","🤪","🤔","😴","😎","🤩","😇","🤖","👍",
+                                                            "👎","🙌","👏","🙏","🔥","⭐","💡","🎉","💯","✔️"
+                                                        ]
+
+                                                    # Helper to get a readable name for an emoji
+                                                    def emoji_name(ch: str) -> str:
+                                                        name = ""
+                                                        if has_emoji_lib and _emoji_lib is not None:
+                                                            try:
+                                                                name = _emoji_lib.demojize(ch, language='en')
+                                                            except Exception:
+                                                                try:
+                                                                    name = _emoji_lib.demojize(ch)
+                                                                except Exception:
+                                                                    name = ""
+                                                            # Normalize demojized name: remove surrounding colons and replace underscores
+                                                            if name:
+                                                                try:
+                                                                    name = name.strip(':')
+                                                                except Exception:
+                                                                    pass
+                                                                try:
+                                                                    name = name.replace('_', ' ')
+                                                                except Exception:
+                                                                    pass
+                                                        else:
+                                                            try:
+                                                                # unicodedata.name returns names like "GRINNING FACE"
+                                                                name = _unicodedata.name(ch)
+                                                                name = name.lower()
+                                                                # Replace multiple spaces/underscores with single space
+                                                                name = name.replace('_', ' ')
+                                                            except Exception:
+                                                                name = ""
+                                                        return name
+
+                                                    # Helper to populate list based on filter text
+                                                    def populate(filter_text: str):
+                                                        list_w.clear()
+                                                        ft = (filter_text or "").strip().lower()
+                                                        added = 0
+                                                        # If no filter, show a small curated set (first 200) to avoid huge lists
+                                                        for ch in all_emojis:
+                                                            try:
+                                                                name = emoji_name(ch)
+                                                            except Exception:
+                                                                name = ""
+                                                            if not ft or ft in (name or "").lower():
+                                                                display_name = name or ""
+                                                                item = QListWidgetItem(f"{ch}  {display_name}")
+                                                                list_w.addItem(item)
+                                                                added += 1
+                                                                # Cap results to 300 for performance
+                                                                if added >= 300:
+                                                                    break
+
+                                                    # Initial population
+                                                    populate("")
+
+                                                    # Update on search change (debounce not necessary for small lists)
+                                                    def on_search(text):
+                                                        try:
+                                                            populate(text)
+                                                        except Exception:
+                                                            pass
+                                                    search.textChanged.connect(on_search)
+
+                                                    # When an emoji is selected, set it into emoji_display and close picker
+                                                    def on_item_clicked(item):
+                                                        try:
+                                                            txt = item.text()
+                                                            sel = txt.split()[0] if txt else ""
+                                                            try:
+                                                                emoji_display.setText(sel)
+                                                            except Exception:
+                                                                pass
+                                                            try:
+                                                                picker.close()
+                                                            except Exception:
+                                                                pass
+                                                        except Exception:
+                                                            pass
+                                                    list_w.itemClicked.connect(on_item_clicked)
+
+                                                    try:
+                                                        picker.show()
+                                                        picker.raise_()
+                                                        picker.activateWindow()
+                                                    except Exception:
+                                                        pass
+                                                except Exception as e:
+                                                    debug_write(f"Error opening emoji picker: {e}")
+
+                                            # Connect the button directly to the picker function (no lambda) so exceptions are easier to trace
+                                            try:
+                                                emoji_btn.clicked.connect(_open_emoji_picker)
+                                            except Exception:
+                                                # Fallback: no-op if connection fails
+                                                try:
+                                                    emoji_btn.clicked.connect(lambda _checked=False: None)
+                                                except Exception:
+                                                    pass
+                                        except Exception:
+                                            # Fallback: no-op if emoji picker can't be created or connected
+                                            try:
+                                                emoji_btn.clicked.connect(lambda _checked=False: None)
+                                            except Exception:
+                                                pass
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+
+                                # Two-way toggle: Parent (checked) / Child (unchecked)
+                                try:
+                                    toggle = QCheckBox("Parent (checked) / Child (unchecked)")
+                                    toggle.setChecked(True)
+                                    layout.addWidget(toggle)
+                                except Exception:
+                                    pass
+
+                                # Spacer to push the Save button to the bottom
+                                try:
+                                    layout.addItem(QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
+                                except Exception:
+                                    pass
+
+                                # Save button (no-op for now)
+                                try:
+                                    save_btn = QPushButton("Save")
+                                    save_btn.clicked.connect(lambda _checked=False: None)
+                                    layout.addWidget(save_btn)
+                                except Exception:
+                                    pass
+
+                                win.setLayout(layout)
                             except Exception:
-                                pass
+                                # Fallback to empty layout if anything goes wrong
+                                try:
+                                    from PyQt5.QtWidgets import QVBoxLayout
+                                    win.setLayout(QVBoxLayout())
+                                except Exception:
+                                    pass
                             try:
                                 win.show()
                                 win.raise_()
