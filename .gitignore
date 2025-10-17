@@ -5,5 +5,6 @@ pastewheel_requirements.txt
 __pycache__
 debug.txt
 test.py
-/previous_files
 user_config.json
+
+/previous_files
