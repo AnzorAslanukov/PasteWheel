@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QPushButton, QToolTip
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt, QSize, QTimer, QPoint
 from PyQt5.QtWidgets import QGraphicsOpacityEffect
+from theme import Theme
 
 
 class RadialInterfaceControlButton(QPushButton):
@@ -13,6 +14,11 @@ class RadialInterfaceControlButton(QPushButton):
         self.button_size = 40
         self.is_hovered = False
         self.original_icon_size = None
+        
+        # Get theme colors
+        theme = Theme()
+        self.colors = theme.get_colors()
+        
         self.click_timer = QTimer()
         self.click_timer.setSingleShot(True)
         self.click_timer.timeout.connect(self.restore_icon_size)
@@ -36,6 +42,7 @@ class RadialInterfaceControlButton(QPushButton):
             self.setToolTip(self.tooltip_text)
         
         # Make button circular with transparent background
+        button_hover_color = self.colors.get("button_hover", "#E0E0E0")
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -43,7 +50,7 @@ class RadialInterfaceControlButton(QPushButton):
                 border-radius: {self.button_size // 2}px;
             }}
             QPushButton:hover {{
-                background-color: lightgrey;
+                background-color: {button_hover_color};
                 border-radius: {self.button_size // 2}px;
             }}
         """)
