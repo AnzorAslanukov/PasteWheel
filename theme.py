@@ -1,5 +1,5 @@
 class Theme:
-    MODE = "light"  # Class variable for theme mode - change this to "dark" to switch modes globally
+    MODE = "dark"  # Class variable for theme mode - change this to "dark" to switch modes globally
     
     def __init__(self):
         """Initialize Theme with the global mode setting."""

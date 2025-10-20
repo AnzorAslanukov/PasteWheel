@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QPushButton, QToolTip
-from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtGui import QIcon, QPixmap, QCursor
 from PyQt5.QtCore import Qt, QSize, QTimer, QPoint
 from PyQt5.QtWidgets import QGraphicsOpacityEffect
 from theme import Theme
@@ -68,6 +68,8 @@ class RadialInterfaceControlButton(QPushButton):
         self.is_hovered = True
         # Set opacity to 75% on hover
         self.opacity_effect.setOpacity(0.5)
+        # Change cursor to pointing hand on hover
+        self.setCursor(QCursor(Qt.PointingHandCursor))
         # Show tooltip if provided - positioned on upper right of mouse cursor
         if self.tooltip_text:
             global_pos = self.mapToGlobal(event.pos())
@@ -80,6 +82,8 @@ class RadialInterfaceControlButton(QPushButton):
         self.is_hovered = False
         # Set opacity back to 100%
         self.opacity_effect.setOpacity(1.0)
+        # Restore cursor to arrow on leave
+        self.setCursor(QCursor(Qt.ArrowCursor))
         # Hide tooltip when mouse leaves
         QToolTip.hideText()
         super().leaveEvent(event)

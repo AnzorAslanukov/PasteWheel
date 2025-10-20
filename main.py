@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication
-from radial_interface import RadialInterface
+from radial_interface.radial_interface import RadialInterface
 
 
 if __name__ == '__main__':

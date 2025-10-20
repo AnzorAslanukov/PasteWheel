@@ -5,4 +5,3 @@ class RadialInterfaceButton:
         self.label = label
         self.clipboard = clipboard
         self.button_type = button_type
-        

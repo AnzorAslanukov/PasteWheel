@@ -1,23 +1,106 @@
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPainter, QPen, QColor
 from PyQt5.QtCore import Qt
-from radial_interface_control_button import RadialInterfaceControlButton
+import math
+from radial_interface.radial_interface_control_button import RadialInterfaceControlButton
 from radial_interface_settings.radial_interface_settings import RadialInterfaceSettings
 from theme import Theme
 
 
 class RadialInterface(QWidget):
-    def __init__(self, width=400, height=400):
+    # Layer capacity constraints
+    LAYER1_MAX_BUTTONS = 8
+    LAYER2_MAX_BUTTONS = 16
+    LAYER3_MAX_BUTTONS = 24
+    
+    # Circle radii
+    LAYER1_RADIUS = 50
+    LAYER2_RADIUS = 100
+    LAYER3_RADIUS = 150
+
+    def __init__(self, width=400, height=400, layer1=None, layer2=None, layer3=None):
         super().__init__()
         self.width = width
         self.height = height
         self.settings_window = None
+        
+        # Initialize layers with validation
+        self.layer1 = layer1 if layer1 is not None else []
+        self.layer2 = layer2 if layer2 is not None else []
+        self.layer3 = layer3 if layer3 is not None else []
+        
+        # Validate layer capacities
+        self._validate_layers()
         
         # Get theme colors
         theme = Theme()
         self.colors = theme.get_colors()
         
         self.initUI()
+    
+    def _validate_layers(self):
+        """Validate that layers don't exceed their capacity constraints."""
+        if len(self.layer1) > self.LAYER1_MAX_BUTTONS:
+            raise ValueError(f"Layer 1 can contain maximum {self.LAYER1_MAX_BUTTONS} buttons, got {len(self.layer1)}")
+        if len(self.layer2) > self.LAYER2_MAX_BUTTONS:
+            raise ValueError(f"Layer 2 can contain maximum {self.LAYER2_MAX_BUTTONS} buttons, got {len(self.layer2)}")
+        if len(self.layer3) > self.LAYER3_MAX_BUTTONS:
+            raise ValueError(f"Layer 3 can contain maximum {self.LAYER3_MAX_BUTTONS} buttons, got {len(self.layer3)}")
+    
+    def _calculate_button_position(self, layer_radius, button_index, total_buttons_in_layer):
+        """
+        Calculate the position of a button on a circular layer.
+        
+        Args:
+            layer_radius: Radius of the circle (50, 100, or 150)
+            button_index: Index of the button in the layer (0-based)
+            total_buttons_in_layer: Total number of buttons in this layer
+        
+        Returns:
+            Tuple of (x, y) coordinates for the button center
+        """
+        center_x = self.width / 2
+        center_y = self.height / 2
+        
+        # Calculate angle in degrees for equal spacing
+        angle_degrees = (360 / total_buttons_in_layer) * button_index
+        # Convert to radians
+        angle_radians = math.radians(angle_degrees)
+        
+        # Calculate position on circle
+        x = center_x + layer_radius * math.cos(angle_radians)
+        y = center_y + layer_radius * math.sin(angle_radians)
+        
+        return (x, y)
+    
+    def get_layer_button_positions(self, layer_num):
+        """
+        Get all button positions for a specific layer.
+        
+        Args:
+            layer_num: Layer number (1, 2, or 3)
+        
+        Returns:
+            List of (x, y) tuples for each button in the layer
+        """
+        if layer_num == 1:
+            layer = self.layer1
+            radius = self.LAYER1_RADIUS
+        elif layer_num == 2:
+            layer = self.layer2
+            radius = self.LAYER2_RADIUS
+        elif layer_num == 3:
+            layer = self.layer3
+            radius = self.LAYER3_RADIUS
+        else:
+            raise ValueError("Layer number must be 1, 2, or 3")
+        
+        positions = []
+        for i in range(len(layer)):
+            pos = self._calculate_button_position(radius, i, len(layer))
+            positions.append(pos)
+        
+        return positions
 
     def initUI(self):
         self.setWindowTitle('Radial Interface')
