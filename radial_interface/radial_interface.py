@@ -5,6 +5,7 @@ import math
 from radial_interface.radial_interface_control_button import RadialInterfaceControlButton
 from radial_interface_settings.radial_interface_settings import RadialInterfaceSettings
 from theme import Theme
+from pastewheel_config import PasteWheelConfig
 
 
 class RadialInterface(QWidget):
@@ -164,19 +165,35 @@ class RadialInterface(QWidget):
         # Connect button clicks to toggle visibility
         self.keyboard_btn.clicked.connect(self.on_keyboard_btn_clicked)
         self.mouse_btn.clicked.connect(self.on_mouse_btn_clicked)
-        
+
         # Connect settings button to open settings window
         self.settings_btn.clicked.connect(self.on_settings_btn_clicked)
+
+        # Set initial button visibility based on saved input mode
+        config = PasteWheelConfig()
+        input_mode = config.get_input_mode()
+        if input_mode == "mouse":
+            self.keyboard_btn.show()
+            self.mouse_btn.hide()
+        else:  # default to keyboard mode
+            self.keyboard_btn.hide()
+            self.mouse_btn.show()
 
     def on_keyboard_btn_clicked(self):
         """Handle keyboard button click - show mouse button."""
         self.keyboard_btn.hide()
         self.mouse_btn.show()
+        # Save input mode to configuration
+        config = PasteWheelConfig()
+        config.set_input_mode("keyboard")
 
     def on_mouse_btn_clicked(self):
         """Handle mouse button click - show keyboard button."""
         self.mouse_btn.hide()
         self.keyboard_btn.show()
+        # Save input mode to configuration
+        config = PasteWheelConfig()
+        config.set_input_mode("mouse")
 
     def on_settings_btn_clicked(self):
         """Handle settings button click - open settings window."""

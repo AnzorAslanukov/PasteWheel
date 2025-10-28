@@ -1,5 +1,10 @@
+from pastewheel_config import PasteWheelConfig
+
+
 class Theme:
-    MODE = "dark"  # Class variable for theme mode - change this to "dark" to switch modes globally
+    # Initialize config manager
+    _config = PasteWheelConfig()
+    MODE = _config.get_theme()  # Class variable for theme mode - loaded from config
     
     def __init__(self):
         """Initialize Theme with the global mode setting."""
@@ -38,10 +43,12 @@ class Theme:
 
     @classmethod
     def set_mode(cls, mode):
-        """Set the theme mode to either 'light' or 'dark' globally."""
+        """Set the theme mode to either 'light' or 'dark' globally and save to config."""
         if mode not in ["light", "dark"]:
             raise ValueError("Mode must be either 'light' or 'dark'")
         cls.MODE = mode
+        # Save theme mode to configuration file
+        cls._config.set_theme(mode)
 
     @classmethod
     def get_mode(cls):

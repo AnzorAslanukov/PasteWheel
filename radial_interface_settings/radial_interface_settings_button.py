@@ -61,6 +61,8 @@ class RadialInterfaceSettingsButton(QPushButton):
     
     def mousePressEvent(self, event):
         """Handle mouse press event - shrink text to 75%."""
+        super().mousePressEvent(event)
+        
         if event.button() == Qt.LeftButton:
             # Shrink font size to 75%
             current_font = self.font()
@@ -72,8 +74,6 @@ class RadialInterfaceSettingsButton(QPushButton):
             self.shrink_timer = QTimer()
             self.shrink_timer.timeout.connect(self._restore_font_size)
             self.shrink_timer.start(100)
-        
-        super().mousePressEvent(event)
     
     def _restore_font_size(self):
         """Restore font size to original after click animation."""
