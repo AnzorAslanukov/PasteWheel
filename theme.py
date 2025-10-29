@@ -25,6 +25,7 @@ class Theme:
                 "success": "#28A745",
                 "warning": "#FFC107",
                 "error": "#DC3545",
+                "section_background": "#F8F9FA",
             }
         else:  # dark mode
             return {
@@ -39,6 +40,7 @@ class Theme:
                 "success": "#4CAF50",
                 "warning": "#FF9800",
                 "error": "#F44336",
+                "section_background": "#2A2A2A",
             }
 
     @classmethod

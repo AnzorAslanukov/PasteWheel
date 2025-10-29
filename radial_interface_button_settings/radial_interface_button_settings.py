@@ -1,6 +1,9 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import Qt
 from theme import Theme
+from radial_interface_button_settings.ribs_button import RibsButton
+from radial_interface_button_settings.ribs_label import RibsLabel
+from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
 
 
 class RadialInterfaceButtonSettings(QWidget):
@@ -83,6 +86,56 @@ class RadialInterfaceButtonSettings(QWidget):
         # Create main layout
         layout = QVBoxLayout()
         self.setLayout(layout)
+
+        # Create clipboard section at the top
+        self.clipboard_section = QWidget(self)
+        self.clipboard_section.setFixedHeight(110)  # Increased height to accommodate all new widgets
+        section_bg = self.colors.get("section_background", "#F0F0F0")
+        self.clipboard_section.setStyleSheet(f"""
+            QWidget {{
+                background-color: {section_bg};
+                border-radius: 8px;
+            }}
+        """)
+
+        # Create clipboard label inside the section
+        self.clipboard_label = RibsLabel("Clipboard Features", "display", self.clipboard_section)
+        self.clipboard_label.setAlignment(Qt.AlignCenter)  # Center the text
+
+        # Create additional widgets for clipboard section
+        self.add_seq_1_clipboard = RibsLabel("Add clipboard data", "display", self.clipboard_section)
+        self.edit_seq_1_clipboard = RibsButton("Edit Clipboard", self.clipboard_section)
+
+        # Create checkbox row widgets
+        self.seq_2_checkbox_label = RibsLabel("Enable sequential clipboard?", "display", self.clipboard_section)
+        self.seq_2_checkbox = RibsCheckbox("", False, self.clipboard_section)  # Empty text, unchecked by default
+
+        # Layout for the clipboard section
+        section_layout = QVBoxLayout(self.clipboard_section)
+        section_layout.addWidget(self.clipboard_label, alignment=Qt.AlignCenter)
+
+        # Horizontal layout for the label and button (first row)
+        controls_layout = QHBoxLayout()
+        controls_layout.addWidget(self.add_seq_1_clipboard)
+        controls_layout.addStretch()  # Push button to the right
+        controls_layout.addWidget(self.edit_seq_1_clipboard)
+        section_layout.addLayout(controls_layout)
+
+        # Horizontal layout for the checkbox label and checkbox (second row)
+        checkbox_layout = QHBoxLayout()
+        checkbox_layout.addWidget(self.seq_2_checkbox_label)
+        checkbox_layout.addStretch()  # Push checkbox to the right
+        checkbox_layout.addWidget(self.seq_2_checkbox)
+        section_layout.addLayout(checkbox_layout)
+
+        # Add clipboard section to main layout at the top
+        layout.addWidget(self.clipboard_section)
+
+        # Create save button at the bottom
+        self.save_button = RibsButton("Save button data", self)
+        # To center the button, we can add stretch above it and center it
+        layout.addStretch()  # This will push the button to the bottom
+        layout.addWidget(self.save_button, alignment=Qt.AlignCenter)  # Center the button
     
     def open_button_settings(self, button_id=None):
         """
