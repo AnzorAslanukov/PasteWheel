@@ -90,3 +90,19 @@ class RibsButton(QPushButton):
         if self.clickable:
             super().mousePressEvent(event)
         # Non-clickable buttons ignore mouse presses
+
+    def set_clickable(self, clickable):
+        """
+        Dynamically set the clickability of the button.
+
+        Args:
+            clickable: Boolean indicating if button should be clickable
+        """
+        self.clickable = clickable
+        self._apply_style()
+
+        # Update cursor based on new clickability state
+        if self.clickable:
+            self.setCursor(Qt.ArrowCursor)
+        else:
+            self.setCursor(Qt.ForbiddenCursor)

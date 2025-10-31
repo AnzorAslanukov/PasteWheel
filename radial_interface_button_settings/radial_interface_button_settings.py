@@ -1,9 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout
 from PyQt5.QtCore import Qt
 from theme import Theme
 from radial_interface_button_settings.ribs_button import RibsButton
 from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
+from radial_interface_button_settings.ribs_radio_btn import RibsRadioBtn
 
 
 class RadialInterfaceButtonSettings(QWidget):
@@ -109,6 +110,8 @@ class RadialInterfaceButtonSettings(QWidget):
         # Create checkbox row widgets
         self.seq_2_checkbox_label = RibsLabel("Enable sequential clipboard?", "display", self.clipboard_section)
         self.seq_2_checkbox = RibsCheckbox("", False, self.clipboard_section)  # Empty text, unchecked by default
+        # Connect checkbox to control button clickability
+        self.seq_2_checkbox.stateChanged.connect(self._on_seq_2_checkbox_changed)
 
         # Create sequential clipboard row widgets
         self.add_seq_2_clipboard = RibsLabel("Add sequential clipboard data", "display", self.clipboard_section)
@@ -142,6 +145,62 @@ class RadialInterfaceButtonSettings(QWidget):
         # Add clipboard section to main layout at the top
         layout.addWidget(self.clipboard_section)
 
+        # Create button label section underneath clipboard_section
+        self.btn_label_section = QWidget(self)
+        self.btn_label_section.setFixedHeight(120)  # Increased height for grid layout
+        section_bg = self.colors.get("section_background", "#F0F0F0")
+        self.btn_label_section.setStyleSheet(f"""
+            QWidget {{
+                background-color: {section_bg};
+                border-radius: 8px;
+            }}
+        """)
+
+        # Create button label section title
+        self.btn_label_section_title = RibsLabel("Button label options", "display", self.btn_label_section)
+        self.btn_label_section_title.setAlignment(Qt.AlignCenter)
+
+        # Create grid layout widgets
+        # Row 1, Column 1: Display label for characters
+        self.rib_btn_title_char_disp_label = RibsLabel("Characters (max 3)", "display", self.btn_label_section)
+
+        # Row 1, Column 2: Radio button for characters (checked=True)
+        self.rib_btn_title_char_radio_btn = RibsRadioBtn("", checked=True, parent=self.btn_label_section)
+
+        # Row 1, Column 3: Input label for characters
+        self.rib_btn_title_char_input_label = RibsLabel("", "input", self.btn_label_section)
+
+        # Row 2, Column 1: Display label for symbols
+        self.rib_btn_title_symbol_disp_label = RibsLabel("Emojis/Symbols", "display", self.btn_label_section)
+
+        # Row 2, Column 2: Radio button for symbols (checked=False)
+        self.rib_btn_title_symbol_radio_btn = RibsRadioBtn("", checked=False, parent=self.btn_label_section)
+
+        # Row 2, Column 3: Button for choosing symbol (clickable=False)
+        self.rib_btn_title_symbol_btn = RibsButton("Choose Emoji/Symbol", clickable=False, parent=self.btn_label_section)
+
+        # Layout for the button label section
+        btn_label_section_layout = QVBoxLayout(self.btn_label_section)
+        btn_label_section_layout.addWidget(self.btn_label_section_title, alignment=Qt.AlignCenter)
+
+        # Grid layout for the 2x3 widgets
+        grid_layout = QGridLayout()
+        grid_layout.setSpacing(5)
+
+        # Add widgets to grid (row, column)
+        grid_layout.addWidget(self.rib_btn_title_char_disp_label, 0, 0)      # Row 1, Col 1
+        grid_layout.addWidget(self.rib_btn_title_char_radio_btn, 0, 1)       # Row 1, Col 2
+        grid_layout.addWidget(self.rib_btn_title_char_input_label, 0, 2)     # Row 1, Col 3
+
+        grid_layout.addWidget(self.rib_btn_title_symbol_disp_label, 1, 0)    # Row 2, Col 1
+        grid_layout.addWidget(self.rib_btn_title_symbol_radio_btn, 1, 1)     # Row 2, Col 2
+        grid_layout.addWidget(self.rib_btn_title_symbol_btn, 1, 2)           # Row 2, Col 3
+
+        btn_label_section_layout.addLayout(grid_layout)
+
+        # Add button label section to main layout
+        layout.addWidget(self.btn_label_section)
+
         # Create save button at the bottom
         self.save_button = RibsButton("Save button data", self)
         # To center the button, we can add stretch above it and center it
@@ -168,3 +227,11 @@ class RadialInterfaceButtonSettings(QWidget):
         self.show()
         self.raise_()
         self.activateWindow()
+
+    def _on_seq_2_checkbox_changed(self, state):
+        """
+        Handle seq_2_checkbox state changes to control edit_seq_2_clipboard clickability.
+        """
+        # state ==  2 means checked (Qt.CheckState.Checked), state == 0 means unchecked
+        is_checked = state == 2  # 2 is Qt.CheckState.Checked value
+        self.edit_seq_2_clipboard.set_clickable(is_checked)

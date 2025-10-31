@@ -1,18 +1,18 @@
-from PyQt5.QtWidgets import QCheckBox
+from PyQt5.QtWidgets import QRadioButton
 from PyQt5.QtCore import Qt
 from theme import Theme
 
 
-class RibsCheckbox(QCheckBox):
+class RibsRadioBtn(QRadioButton):
     def __init__(self, text="", checked=False, parent=None, clickable=True):
         """
-        Initialize the RibsCheckbox.
+        Initialize the RibsRadioBtn.
 
         Args:
-            text: The text to display next to the checkbox
-            checked: Boolean indicating if checkbox should be initially checked
+            text: The text to display next to the radio button
+            checked: Boolean indicating initial checked state (default: False/off)
             parent: Parent widget
-            clickable: Boolean indicating if checkbox should be clickable (default: True)
+            clickable: Boolean indicating if radio button should be clickable (default: True)
         """
         super().__init__(text, parent)
 
@@ -26,7 +26,7 @@ class RibsCheckbox(QCheckBox):
         theme = Theme()
         self.colors = theme.get_colors()
 
-        # Handle non-clickable checkboxes
+        # Handle non-clickable radio buttons
         if not self.clickable:
             self.setEnabled(False)
 
@@ -34,7 +34,7 @@ class RibsCheckbox(QCheckBox):
         self._apply_style()
 
     def _apply_style(self):
-        """Apply theme-based styling to the checkbox."""
+        """Apply theme-based styling to the radio button."""
         # Get appropriate colors from theme
         background_color = self.colors.get("background", "#FFFFFF")
         text_color = self.colors.get("text", "#000000")
@@ -50,23 +50,26 @@ class RibsCheckbox(QCheckBox):
 
         # Apply stylesheet
         self.setStyleSheet(f"""
-            QCheckBox {{
+            QRadioButton {{
                 background-color: {background_color};
                 color: {text_color};
                 spacing: 8px;
             }}
-            QCheckBox::indicator {{
+            QRadioButton::indicator {{
                 width: 16px;
                 height: 16px;
                 background-color: {indicator_bg};
                 border: 1px solid {indicator_border};
-                border-radius: 2px;
+                border-radius: 8px;
             }}
-            QCheckBox::indicator:checked {{
+            QRadioButton::indicator:checked {{
                 background-color: {self.colors.get("accent", "#007BFF")};
                 border-color: {self.colors.get("accent", "#007BFF")};
             }}
-            QCheckBox::indicator:hover {{
+            QRadioButton::indicator:hover {{
+                border-color: {self.colors.get("accent", "#007BFF")};
+            }}
+            QRadioButton::indicator:checked::hover {{
                 border-color: {self.colors.get("accent", "#007BFF")};
             }}
         """)
