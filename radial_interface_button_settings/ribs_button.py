@@ -4,11 +4,25 @@ from theme import Theme
 
 
 class RibsButton(QPushButton):
-    def __init__(self, label, parent=None, clickable=True):
+    def __init__(self, label, parent=None, clickable=True, min_height=None, padding=None):
+        """
+        Initialize the RibsButton.
+
+        Args:
+            label: Text to display on the button
+            parent: Parent widget
+            clickable: Whether the button is clickable (default: True)
+            min_height: Minimum height in pixels (optional)
+            padding: CSS-like padding string, e.g. "8px 16px" (optional)
+        """
         super().__init__(label, parent)
 
         # Store clickable state
         self.clickable = clickable
+
+        # Store size parameters
+        self.min_height = min_height
+        self.padding = padding or "4px 16px"
 
         # Get theme colors
         theme = Theme()
@@ -17,12 +31,15 @@ class RibsButton(QPushButton):
         # Initialize button styling
         self._apply_style()
 
-        # Set default cursor
+        # Set button size if min_height specified
+        if self.min_height:
+            self.setMinimumHeight(self.min_height)
+
+        # Set cursor based on clickability
         if self.clickable:
             self.setCursor(Qt.ArrowCursor)
         else:
             self.setCursor(Qt.ForbiddenCursor)
-            self.setEnabled(False)  # Make button unclickable
 
     def _apply_style(self, hovered=False):
         """Apply theme-based styling to the button."""
@@ -46,7 +63,7 @@ class RibsButton(QPushButton):
                 color: {text_color};
                 border: 1px solid {border_color};
                 border-radius: 4px;
-                padding: 8px 16px;
+                padding: {self.padding};
             }}
         """)
 
@@ -67,3 +84,9 @@ class RibsButton(QPushButton):
         else:
             self.setCursor(Qt.ForbiddenCursor)
         super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """Override mouse press to prevent clicking on non-clickable buttons."""
+        if self.clickable:
+            super().mousePressEvent(event)
+        # Non-clickable buttons ignore mouse presses

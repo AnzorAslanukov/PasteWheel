@@ -89,7 +89,7 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Create clipboard section at the top
         self.clipboard_section = QWidget(self)
-        self.clipboard_section.setFixedHeight(110)  # Increased height to accommodate all new widgets
+        self.clipboard_section.setFixedHeight(140)  # Increased height to accommodate all new widgets
         section_bg = self.colors.get("section_background", "#F0F0F0")
         self.clipboard_section.setStyleSheet(f"""
             QWidget {{
@@ -110,6 +110,10 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_2_checkbox_label = RibsLabel("Enable sequential clipboard?", "display", self.clipboard_section)
         self.seq_2_checkbox = RibsCheckbox("", False, self.clipboard_section)  # Empty text, unchecked by default
 
+        # Create sequential clipboard row widgets
+        self.add_seq_2_clipboard = RibsLabel("Add sequential clipboard data", "display", self.clipboard_section)
+        self.edit_seq_2_clipboard = RibsButton("Edit clipboard", clickable=False)
+
         # Layout for the clipboard section
         section_layout = QVBoxLayout(self.clipboard_section)
         section_layout.addWidget(self.clipboard_label, alignment=Qt.AlignCenter)
@@ -127,6 +131,13 @@ class RadialInterfaceButtonSettings(QWidget):
         checkbox_layout.addStretch()  # Push checkbox to the right
         checkbox_layout.addWidget(self.seq_2_checkbox)
         section_layout.addLayout(checkbox_layout)
+
+        # Horizontal layout for sequential clipboard widgets (third row)
+        sequential_layout = QHBoxLayout()
+        sequential_layout.addWidget(self.add_seq_2_clipboard)
+        sequential_layout.addStretch()  # Push button to the right
+        sequential_layout.addWidget(self.edit_seq_2_clipboard)
+        section_layout.addLayout(sequential_layout)
 
         # Add clipboard section to main layout at the top
         layout.addWidget(self.clipboard_section)
