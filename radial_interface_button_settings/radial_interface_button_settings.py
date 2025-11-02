@@ -201,6 +201,40 @@ class RadialInterfaceButtonSettings(QWidget):
         # Add button label section to main layout
         layout.addWidget(self.btn_label_section)
 
+        # Create button type display label underneath btn_label_section
+        self.rib_btn_type_disp_label = RibsLabel("Select button type", "display", self)
+        layout.addWidget(self.rib_btn_type_disp_label, alignment=Qt.AlignCenter)
+
+        # Create button type selection widgets in a 2x2 grid
+        # Row 1, Column 1: Display label for clipboard
+        self.rib_radio_select_clipboard_disp_label = RibsLabel("Clipboard", "display", self)
+
+        # Row 1, Column 2: Display label for expand
+        self.rib_radio_select_expand_disp_label = RibsLabel("Expand", "display", self)
+
+        # Row 2, Column 1: Radio button for clipboard (checked=True)
+        self.rib_radio_select_clipboard = RibsRadioBtn("", checked=True, parent=self)
+
+        # Row 2, Column 2: Radio button for expand (checked=False)
+        self.rib_radio_select_expand = RibsRadioBtn("", checked=False, parent=self)
+
+        # Create container widget for first row (clipboard label + radio) to enable centering
+        type_row1_container = QWidget(self)
+        type_row1_layout = QHBoxLayout(type_row1_container)
+        type_row1_layout.addWidget(self.rib_radio_select_clipboard_disp_label)
+        type_row1_layout.addWidget(self.rib_radio_select_clipboard)
+        layout.addWidget(type_row1_container, alignment=Qt.AlignCenter)
+
+        # Create container widget for second row (expand label + radio) to enable centering
+        type_row2_container = QWidget(self)
+        type_row2_layout = QHBoxLayout(type_row2_container)
+        type_row2_layout.addWidget(self.rib_radio_select_expand_disp_label)
+        type_row2_layout.addWidget(self.rib_radio_select_expand)
+        layout.addWidget(type_row2_container, alignment=Qt.AlignCenter)
+
+        # Set custom vertical spacing between the type selection rows - adjustable value
+        layout.setSpacing(8)  # CUSTOM VALUE: Adjust this number to control vertical gap between rows
+
         # Create save button at the bottom
         self.save_button = RibsButton("Save button data", self)
         # To center the button, we can add stretch above it and center it
