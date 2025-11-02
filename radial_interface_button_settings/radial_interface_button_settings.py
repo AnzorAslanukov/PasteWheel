@@ -168,7 +168,12 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_btn_title_char_radio_btn = RibsRadioBtn("", checked=True, parent=self.btn_label_section)
 
         # Row 1, Column 3: Input label for characters
-        self.rib_btn_title_char_input_label = RibsLabel("", "input", self.btn_label_section)
+        self.rib_btn_title_char_input_label = RibsLabel("", 
+                                                        "input", 
+                                                        self.btn_label_section,
+                                                        input_clickable_tooltip="Enter a three-character label for the button.", 
+                                                        max_length=3, 
+                                                        input_alignment="center")
 
         # Row 2, Column 1: Display label for symbols
         self.rib_btn_title_symbol_disp_label = RibsLabel("Emojis/Symbols", "display", self.btn_label_section)
@@ -202,15 +207,15 @@ class RadialInterfaceButtonSettings(QWidget):
         layout.addWidget(self.btn_label_section)
 
         # Create button type display label underneath btn_label_section
-        self.rib_btn_type_disp_label = RibsLabel("Select button type", "display", self)
+        self.rib_btn_type_disp_label = RibsLabel("Select button type", "display", self, padding=0)
         layout.addWidget(self.rib_btn_type_disp_label, alignment=Qt.AlignCenter)
 
         # Create button type selection widgets in a 2x2 grid
         # Row 1, Column 1: Display label for clipboard
-        self.rib_radio_select_clipboard_disp_label = RibsLabel("Clipboard", "display", self)
+        self.rib_radio_select_clipboard_disp_label = RibsLabel("Clipboard", "display", self, padding=0)
 
         # Row 1, Column 2: Display label for expand
-        self.rib_radio_select_expand_disp_label = RibsLabel("Expand", "display", self)
+        self.rib_radio_select_expand_disp_label = RibsLabel("Expand", "display", self, padding=0)
 
         # Row 2, Column 1: Radio button for clipboard (checked=True)
         self.rib_radio_select_clipboard = RibsRadioBtn("", checked=True, parent=self)

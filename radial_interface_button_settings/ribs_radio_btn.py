@@ -26,9 +26,9 @@ class RibsRadioBtn(QRadioButton):
         theme = Theme()
         self.colors = theme.get_colors()
 
-        # Handle non-clickable radio buttons
+        # Handle cursor settings for non-clickable radio buttons
         if not self.clickable:
-            self.setEnabled(False)
+            self.setFocusPolicy(Qt.NoFocus)  # Prevent focus
 
         # Apply styling
         self._apply_style()
@@ -36,7 +36,6 @@ class RibsRadioBtn(QRadioButton):
     def _apply_style(self):
         """Apply theme-based styling to the radio button."""
         # Get appropriate colors from theme
-        background_color = self.colors.get("background", "#FFFFFF")
         text_color = self.colors.get("text", "#000000")
 
         # If not clickable, use darker background colors
@@ -48,10 +47,10 @@ class RibsRadioBtn(QRadioButton):
             indicator_bg = self.colors.get("button", "#F0F0F0")
             indicator_border = self.colors.get("border", "#CCCCCC")
 
-        # Apply stylesheet
+        # Apply stylesheet with transparent background
         self.setStyleSheet(f"""
             QRadioButton {{
-                background-color: {background_color};
+                background-color: transparent;
                 color: {text_color};
                 spacing: 8px;
             }}
@@ -89,3 +88,16 @@ class RibsRadioBtn(QRadioButton):
         else:
             self.setCursor(Qt.ForbiddenCursor)
         super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """Override mouse press to prevent interaction with non-clickable radio buttons."""
+        if self.clickable:
+            super().mousePressEvent(event)
+        # Non-clickable radio buttons ignore mouse presses
+
+    def setChecked(self, checked):
+        """Override setChecked to prevent changes for non-clickable radio buttons."""
+        if not self.clickable:
+            # Store the current state and prevent changes
+            return
+        super().setChecked(checked)
