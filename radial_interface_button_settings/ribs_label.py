@@ -143,3 +143,11 @@ class RibsLabel(QWidget):
         """Set alignment for QLabel widgets."""
         if isinstance(self.widget, QLabel):
             self.widget.setAlignment(alignment)
+
+    def set_clickable(self, clickable):
+        """Set the clickable state and update visual feedback."""
+        self.clickable = clickable
+        if self.is_input_type and isinstance(self.widget, QLineEdit):
+            self.widget.setEnabled(clickable)
+        # Reapply styling to update visual appearance
+        self._apply_style()

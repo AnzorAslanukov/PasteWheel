@@ -147,7 +147,7 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Create button label section underneath clipboard_section
         self.btn_label_section = QWidget(self)
-        self.btn_label_section.setFixedHeight(120)  # Increased height for grid layout
+        self.btn_label_section.setFixedHeight(160)  # Increased height for grid layout and new tooltip widgets
         section_bg = self.colors.get("section_background", "#F0F0F0")
         self.btn_label_section.setStyleSheet(f"""
             QWidget {{
@@ -202,6 +202,28 @@ class RadialInterfaceButtonSettings(QWidget):
         grid_layout.addWidget(self.rib_btn_title_symbol_btn, 1, 2)           # Row 2, Col 3
 
         btn_label_section_layout.addLayout(grid_layout)
+
+        # Add tooltip configuration row
+        tooltip_row_layout = QHBoxLayout()
+        self.rib_tooltip_disp_label = RibsLabel("Include tooltip?", "display", self.btn_label_section,
+                                                display_tooltip="Add an explanation that will show up when the user hovers their mouse over the button." \
+                                                "\nYou can include a max of 128 characters.")
+        self.rib_tooltip_checkbox = RibsCheckbox("", False, parent=self.btn_label_section)
+        self.rib_tooltip_config_btn = RibsButton("Configure tooltip", clickable=False, parent=self.btn_label_section)
+
+        tooltip_row_layout.addWidget(self.rib_tooltip_disp_label)  # Left
+        tooltip_row_layout.addStretch()  # Space between label and checkbox
+        tooltip_row_layout.addWidget(self.rib_tooltip_checkbox)   # Center
+        tooltip_row_layout.addStretch()  # Space between checkbox and button
+        tooltip_row_layout.addWidget(self.rib_tooltip_config_btn) # Right
+        btn_label_section_layout.addLayout(tooltip_row_layout)
+
+        # Connect tooltip checkbox to control config button clickability
+        self.rib_tooltip_checkbox.stateChanged.connect(self._on_tooltip_checkbox_changed)
+
+        # Connect radio buttons to control widget states
+        self.rib_btn_title_char_radio_btn.toggled.connect(self._on_char_radio_toggled)
+        self.rib_btn_title_symbol_radio_btn.toggled.connect(self._on_symbol_radio_toggled)
 
         # Add button label section to main layout
         layout.addWidget(self.btn_label_section)
@@ -274,3 +296,41 @@ class RadialInterfaceButtonSettings(QWidget):
         # state ==  2 means checked (Qt.CheckState.Checked), state == 0 means unchecked
         is_checked = state == 2  # 2 is Qt.CheckState.Checked value
         self.edit_seq_2_clipboard.set_clickable(is_checked)
+
+    def _on_char_radio_toggled(self, checked):
+        """
+        Handle rib_btn_title_char_radio_btn toggles to control widget states.
+
+        When characters radio button is checked:
+        - rib_btn_title_char_input_label remains clickable (True by default)
+        - rib_btn_title_symbol_btn becomes non-clickable (False)
+        - rib_btn_title_input_label becomes clickable (True)
+        """
+        if checked:
+            # Characters radio is checked - character input should be enabled
+            # Symbol button should be disabled
+            self.rib_btn_title_symbol_btn.set_clickable(False)
+            self.rib_btn_title_char_input_label.set_clickable(True)
+
+    def _on_symbol_radio_toggled(self, checked):
+        """
+        Handle rib_btn_title_symbol_radio_btn toggles to control widget states.
+
+        When symbols radio button is checked:
+        - rib_btn_title_char_input_label becomes non-clickable (False)
+        - rib_btn_title_char_radio_btn becomes unchecked (False)
+        - rib_btn_title_symbol_btn becomes clickable (True)
+        """
+        if checked:
+            # Symbols radio is checked - make character input non-clickable
+            # and uncheck the character radio button (but this will trigger _on_char_radio_toggled)
+            self.rib_btn_title_char_input_label.set_clickable(False)
+            self.rib_btn_title_symbol_btn.set_clickable(True)
+
+    def _on_tooltip_checkbox_changed(self, state):
+        """
+        Handle rib_tooltip_checkbox state changes to control rib_tooltip_config_btn clickability.
+        """
+        # state ==  2 means checked (Qt.CheckState.Checked), state == 0 means unchecked
+        is_checked = state == 2  # 2 is Qt.CheckState.Checked value
+        self.rib_tooltip_config_btn.set_clickable(is_checked)
