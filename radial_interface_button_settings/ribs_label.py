@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QLineEdit, QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QLabel, QLineEdit, QWidget, QVBoxLayout, QGraphicsOpacityEffect
 from PyQt5.QtCore import Qt
 from theme import Theme
 
@@ -46,6 +46,10 @@ class RibsLabel(QWidget):
         self.input_clickable_tooltip = input_clickable_tooltip
         self.input_unclickable_tooltip = input_unclickable_tooltip
 
+        # Get theme colors first (needed for text processing)
+        theme = Theme()
+        self.colors = theme.get_colors()
+
         # Create the appropriate widget based on type
         if self.is_input_type:
             self.widget = QLineEdit(text, self)
@@ -53,11 +57,9 @@ class RibsLabel(QWidget):
             if not self.clickable:
                 self.widget.setEnabled(False)
         else:
-            self.widget = QLabel(text, self)
-
-        # Get theme colors
-        theme = Theme()
-        self.colors = theme.get_colors()
+            # Process text to style "ⓘ" character
+            styled_text = self._process_text_for_styling(text)
+            self.widget = QLabel(styled_text, self)
 
         # Set input alignment for input-type labels
         if self.is_input_type and isinstance(self.widget, QLineEdit):
@@ -86,12 +88,7 @@ class RibsLabel(QWidget):
         background_color = self.colors.get("background", "#FFFFFF")
         text_color = self.colors.get("text", "#000000")
 
-        # For input-type labels that are not clickable, use darkened colors
-        if not self.clickable and self.is_input_type:
-            background_color = self.colors.get("background", "#CCCCCC")  # Darken background
-            text_color = self.colors.get("text", "#888888")  # Dim text color
-
-        # Apply stylesheet
+        # Apply stylesheet - remove color changes for unclickable state
         self.setStyleSheet(f"""
             QLabel {{
                 background-color: {background_color};
@@ -107,6 +104,14 @@ class RibsLabel(QWidget):
                 margin: {self.margin}px;
             }}
         """)
+
+        # Set opacity using QGraphicsOpacityEffect
+        opacity_effect = QGraphicsOpacityEffect()
+        if not self.clickable:
+            opacity_effect.setOpacity(0.5)
+        else:
+            opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(opacity_effect)
 
     def enterEvent(self, event):
         """Handle mouse enter event - change rib_btn_title_char_input_label based on label type and clickability, show tooltips."""
@@ -143,6 +148,30 @@ class RibsLabel(QWidget):
         """Set alignment for QLabel widgets."""
         if isinstance(self.widget, QLabel):
             self.widget.setAlignment(alignment)
+
+    def _process_text_for_styling(self, text):
+        """
+        Process text to apply special styling to the "ⓘ" character if present.
+
+        Args:
+            text: The original text string
+
+        Returns:
+            Processed text with HTML styling for the special character
+        """
+        # Check if "ⓘ" character exists in the text
+        if "ⓘ" in text:
+            # Get the circle_i color from theme
+            circle_i_color = self.colors.get("circle_i", "#007AFF")
+
+            # Replace "ⓘ" with styled version (bold and colored)
+            styled_text = text.replace("ⓘ", f'<font color="{circle_i_color}"><b>ⓘ</b></font>')
+
+            # Return as HTML-formatted text
+            return f'<html><body>{styled_text}</body></html>'
+        else:
+            # No special character, return original text
+            return text
 
     def set_clickable(self, clickable):
         """Set the clickable state and update visual feedback."""

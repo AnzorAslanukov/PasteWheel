@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QPushButton
+from PyQt5.QtWidgets import QPushButton, QGraphicsOpacityEffect
 from PyQt5.QtCore import Qt
 from theme import Theme
 
@@ -47,16 +47,17 @@ class RibsButton(QPushButton):
         text_color = self.colors.get("text", "#000000")
         border_color = self.colors.get("border", "#CCCCCC")
 
-        # If not clickable, use darker background
+        # Set opacity for non-clickable buttons
+        opacity = "1.0"
         if not self.clickable:
-            # Use an even darker color for disabled state
-            background_color = self.colors.get("background", "#CCCCCC")  # Use background color as dark base
-        elif hovered:
+            opacity = "0.5"
+
+        if hovered and self.clickable:
             # Darken background on hover for clickable buttons
             hover_color = self.colors.get("button_hover", "#E0E0E0")
             background_color = hover_color
 
-        # Apply stylesheet
+        # Apply stylesheet without opacity in CSS
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: {background_color};
@@ -66,6 +67,14 @@ class RibsButton(QPushButton):
                 padding: {self.padding};
             }}
         """)
+
+        # Set opacity using QGraphicsOpacityEffect
+        opacity_effect = QGraphicsOpacityEffect()
+        if not self.clickable:
+            opacity_effect.setOpacity(0.5)
+        else:
+            opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(opacity_effect)
 
     def enterEvent(self, event):
         """Handle mouse enter event - darken background and change cursor based on clickability."""

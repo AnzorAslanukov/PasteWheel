@@ -108,13 +108,14 @@ class RadialInterfaceButtonSettings(QWidget):
         self.edit_seq_1_clipboard = RibsButton("Edit Clipboard", self.clipboard_section)
 
         # Create checkbox row widgets
-        self.seq_2_checkbox_label = RibsLabel("Enable sequential clipboard?", "display", self.clipboard_section)
+        self.seq_2_checkbox_label = RibsLabel("Enable sequential clipboard? ⓘ", "display", self.clipboard_section,
+                                             display_tooltip="Store two things in clipboard. Paste them sequentially.")
         self.seq_2_checkbox = RibsCheckbox("", False, self.clipboard_section)  # Empty text, unchecked by default
         # Connect checkbox to control button clickability
         self.seq_2_checkbox.stateChanged.connect(self._on_seq_2_checkbox_changed)
 
         # Create sequential clipboard row widgets
-        self.add_seq_2_clipboard = RibsLabel("Add sequential clipboard data", "display", self.clipboard_section)
+        self.add_seq_2_clipboard = RibsLabel("Add sequential clipboard data:", "display", self.clipboard_section)
         self.edit_seq_2_clipboard = RibsButton("Edit clipboard", clickable=False)
 
         # Layout for the clipboard section
@@ -157,7 +158,9 @@ class RadialInterfaceButtonSettings(QWidget):
         """)
 
         # Create button label section title
-        self.btn_label_section_title = RibsLabel("Button label options", "display", self.btn_label_section)
+        self.btn_label_section_title = RibsLabel("Button label options ⓘ", "display", self.btn_label_section,
+                                                 display_tooltip="Choose text or emoji/symbol labels." \
+                                                 "\nRadio buttons select one option.")
         self.btn_label_section_title.setAlignment(Qt.AlignCenter)
 
         # Create grid layout widgets
@@ -205,8 +208,8 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Add tooltip configuration row
         tooltip_row_layout = QHBoxLayout()
-        self.rib_tooltip_disp_label = RibsLabel("Include tooltip?", "display", self.btn_label_section,
-                                                display_tooltip="Add an explanation that will show up when the user hovers their mouse over the button." \
+        self.rib_tooltip_disp_label = RibsLabel("Include tooltip? ⓘ", "display", self.btn_label_section,
+                                                display_tooltip="Add an explanation that will show up when you hover your mouse over the button." \
                                                 "\nYou can include a max of 128 characters.")
         self.rib_tooltip_checkbox = RibsCheckbox("", False, parent=self.btn_label_section)
         self.rib_tooltip_config_btn = RibsButton("Configure tooltip", clickable=False, parent=self.btn_label_section)
@@ -229,7 +232,11 @@ class RadialInterfaceButtonSettings(QWidget):
         layout.addWidget(self.btn_label_section)
 
         # Create button type display label underneath btn_label_section
-        self.rib_btn_type_disp_label = RibsLabel("Select button type", "display", self, padding=0)
+        self.rib_btn_type_disp_label = RibsLabel("Select button type ⓘ", "display", self,
+                                                 padding=0,
+                                                 display_tooltip="Clipboard button stores data." \
+                                                 "\nExpand button reveals more buttons.")
+        
         layout.addWidget(self.rib_btn_type_disp_label, alignment=Qt.AlignCenter)
 
         # Create button type selection widgets in a 2x2 grid

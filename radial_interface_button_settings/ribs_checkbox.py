@@ -51,7 +51,7 @@ class RibsCheckbox(QCheckBox):
         # Apply stylesheet
         self.setStyleSheet(f"""
             QCheckBox {{
-                background-color: {background_color};
+                background-color: transparent;
                 color: {text_color};
                 spacing: 8px;
             }}

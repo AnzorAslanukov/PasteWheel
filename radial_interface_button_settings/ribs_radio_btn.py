@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QRadioButton
+from PyQt5.QtWidgets import QRadioButton, QGraphicsOpacityEffect
 from PyQt5.QtCore import Qt
 from theme import Theme
 
@@ -72,6 +72,14 @@ class RibsRadioBtn(QRadioButton):
                 border-color: {self.colors.get("accent", "#007BFF")};
             }}
         """)
+
+        # Set opacity using QGraphicsOpacityEffect
+        opacity_effect = QGraphicsOpacityEffect()
+        if not self.clickable:
+            opacity_effect.setOpacity(0.5)
+        else:
+            opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(opacity_effect)
 
     def enterEvent(self, event):
         """Handle mouse enter event - change cursor based on clickability."""
