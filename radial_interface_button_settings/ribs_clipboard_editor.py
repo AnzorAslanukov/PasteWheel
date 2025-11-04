@@ -1,6 +1,8 @@
-from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QVBoxLayout
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QVBoxLayout, QTextEdit
+from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QColor
 from theme import Theme
+import enchant
 
 
 class RibsClipboardEditor(QWidget):
@@ -51,6 +53,9 @@ class RibsClipboardEditor(QWidget):
             theme = Theme()
             self.colors = theme.get_colors()
 
+            # Initialize spell checker
+            self.spell_checker = self.SpellChecker(self.document())
+
             # Apply theme-based styling
             self._apply_style()
 
@@ -70,3 +75,54 @@ class RibsClipboardEditor(QWidget):
                     padding: 8px;
                 }}
             """)
+
+        class SpellChecker(QSyntaxHighlighter):
+            def __init__(self, document):
+                """
+                Initialize the spell checker highlighter.
+
+                Args:
+                    document: The text document to highlight
+                """
+                super().__init__(document)
+
+                # Try to initialize enchant dictionary
+                try:
+                    self.dictionary = enchant.Dict("en_US")  # English US dictionary
+                except enchant.Error:
+                    # Fallback if en_US is not available
+                    try:
+                        self.dictionary = enchant.Dict("en")
+                    except enchant.Error:
+                        # If no English dictionary is available, disable spell checking
+                        self.dictionary = None
+
+                # Set up highlighting format
+                if self.dictionary:
+                    self.mispell_format = QTextCharFormat()
+                    self.mispell_format.setUnderlineColor(QColor("#FF0000"))  # Red underline
+                    self.mispell_format.setUnderlineStyle(QTextCharFormat.WaveUnderline)
+
+            def highlightBlock(self, text):
+                """
+                Highlight misspelled words in the text block.
+
+                Args:
+                    text: The text block to check and highlight
+                """
+                if not self.dictionary:
+                    return  # Skip if no dictionary available
+
+                # Use regex to find word boundaries
+                word_regex = QRegExp(r'\b\w+\b')
+                pos = 0
+
+                while (match := word_regex.indexIn(text, pos)) != -1:
+                    word = word_regex.cap(0)
+
+                    # Check if word is misspelled
+                    if not self.dictionary.check(word):
+                        # Apply formatting to highlight misspelled word
+                        self.setFormat(match, len(word), self.mispell_format)
+
+                    pos = match + len(word)

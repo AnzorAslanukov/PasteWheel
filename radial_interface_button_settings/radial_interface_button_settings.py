@@ -149,7 +149,7 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Instantiate the clipboard editors
         self.seq_1_clipboard_editor = RibsClipboardEditor(parent=self)
-        self.seq_2_clipboard_editor = RibsClipboardEditor(parent=self)
+        self.seq_2_clipboard_editor = RibsClipboardEditor(parent=self, window_title="Sequence 2 Clipboard Editor")
 
         # Connect button click signals to open clipboard editors
         self.edit_seq_1_clipboard.clicked.connect(self._on_edit_seq_1_clipboard_clicked)
