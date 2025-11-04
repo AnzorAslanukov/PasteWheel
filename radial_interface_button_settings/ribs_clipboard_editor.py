@@ -2,6 +2,8 @@ from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QVBoxLayout, QTextEdit
 from PyQt5.QtCore import Qt, QRegExp
 from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QColor
 from theme import Theme
+from radial_interface_button_settings.ribs_button import RibsButton
+from radial_interface_button_settings.ribs_label import RibsLabel
 import enchant
 
 
@@ -30,14 +32,33 @@ class RibsClipboardEditor(QWidget):
     def initUI(self):
         """Initialize the RibsClipboardEditor UI."""
         # Set window title and basic layout
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
 
         # Instantiate RibsPlainTextEditor
         self.ribs_clipboard_input = self.RibsPlainTextEditor(self)
 
         # Add to layout to make it visible and ready for input
-        layout.addWidget(self.ribs_clipboard_input)
+        self.layout.addWidget(self.ribs_clipboard_input)
+
+        # Instantiate character counter label
+        self.clipboard_editor_counter_label = RibsLabel("Character count: 0", "display", self)
+
+        # Add counter label to layout
+        self.layout.addWidget(self.clipboard_editor_counter_label, alignment=Qt.AlignLeft)
+
+        # Connect text changed signal to update counter
+        self.ribs_clipboard_input.textChanged.connect(self._update_character_counter)
+
+        # Instantiate save button at the bottom and center it
+        self.ribs_clipboard_editor_save_btn = RibsButton("Save", self)
+
+        # Add controlled spacing before save button
+        self.spacing_pixels = 10  # Variable to adjust spacing in pixels (0 = minimal spacing)
+        self.layout.setSpacing(self.spacing_pixels)
+
+        # Add save button at the bottom, centered
+        self.layout.addWidget(self.ribs_clipboard_editor_save_btn, alignment=Qt.AlignCenter)
 
     class RibsPlainTextEditor(QPlainTextEdit):
         def __init__(self, parent=None):
@@ -126,3 +147,20 @@ class RibsClipboardEditor(QWidget):
                         self.setFormat(match, len(word), self.mispell_format)
 
                     pos = match + len(word)
+
+        def get_character_count(self):
+            """
+            Return the number of characters currently typed in the RibsPlainTextEditor.
+
+            Returns:
+                int: The total character count in the text editor
+            """
+            return len(self.toPlainText())
+
+    def _update_character_counter(self):
+        """
+        Update the character counter label with current character count.
+        Called whenever text changes in ribs_clipboard_input.
+        """
+        count = self.ribs_clipboard_input.get_character_count()
+        self.clipboard_editor_counter_label.widget.setText(f"Character count: {count}")
