@@ -5,6 +5,7 @@ from radial_interface_button_settings.ribs_button import RibsButton
 from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
 from radial_interface_button_settings.ribs_radio_btn import RibsRadioBtn
+from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboardEditor
 
 
 class RadialInterfaceButtonSettings(QWidget):
@@ -104,7 +105,7 @@ class RadialInterfaceButtonSettings(QWidget):
         self.clipboard_label.setAlignment(Qt.AlignCenter)  # Center the text
 
         # Create additional widgets for clipboard section
-        self.add_seq_1_clipboard = RibsLabel("Add clipboard data", "display", self.clipboard_section)
+        self.add_seq_1_clipboard = RibsLabel("Add clipboard data:", "display", self.clipboard_section)
         self.edit_seq_1_clipboard = RibsButton("Edit Clipboard", self.clipboard_section)
 
         # Create checkbox row widgets
@@ -145,6 +146,14 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Add clipboard section to main layout at the top
         layout.addWidget(self.clipboard_section)
+
+        # Instantiate the clipboard editors
+        self.seq_1_clipboard_editor = RibsClipboardEditor(parent=self)
+        self.seq_2_clipboard_editor = RibsClipboardEditor(parent=self)
+
+        # Connect button click signals to open clipboard editors
+        self.edit_seq_1_clipboard.clicked.connect(self._on_edit_seq_1_clipboard_clicked)
+        self.edit_seq_2_clipboard.clicked.connect(self._on_edit_seq_2_clipboard_clicked)
 
         # Create button label section underneath clipboard_section
         self.btn_label_section = QWidget(self)
@@ -365,3 +374,19 @@ class RadialInterfaceButtonSettings(QWidget):
         if checked:
             # Expand radio was just checked - ensure clipboard is unchecked
             self.rib_radio_select_clipboard.setChecked(False)
+
+    def _on_edit_seq_1_clipboard_clicked(self):
+        """
+        Handle edit_seq_1_clipboard button click to open seq_1_clipboard_editor.
+        """
+        self.seq_1_clipboard_editor.show()
+        self.seq_1_clipboard_editor.raise_()
+        self.seq_1_clipboard_editor.activateWindow()
+
+    def _on_edit_seq_2_clipboard_clicked(self):
+        """
+        Handle edit_seq_2_clipboard button click to open seq_2_clipboard_editor.
+        """
+        self.seq_2_clipboard_editor.show()
+        self.seq_2_clipboard_editor.raise_()
+        self.seq_2_clipboard_editor.activateWindow()
