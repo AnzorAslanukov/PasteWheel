@@ -228,6 +228,9 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_btn_title_char_radio_btn.toggled.connect(self._on_char_radio_toggled)
         self.rib_btn_title_symbol_radio_btn.toggled.connect(self._on_symbol_radio_toggled)
 
+        # Connect button type radio buttons for mutual exclusivity
+        # Note: setChecked(True) and signal connections must happen AFTER widget instantiation
+
         # Add button label section to main layout
         layout.addWidget(self.btn_label_section)
 
@@ -274,7 +277,12 @@ class RadialInterfaceButtonSettings(QWidget):
         # To center the button, we can add stretch above it and center it
         layout.addStretch()  # This will push the button to the bottom
         layout.addWidget(self.save_button, alignment=Qt.AlignCenter)  # Center the button
-    
+
+        # Connect button type radio buttons for mutual exclusivity (AFTER widget instantiation)
+        self.rib_radio_select_clipboard.setChecked(True)  # Ensure clipboard is initially checked
+        self.rib_radio_select_clipboard.toggled.connect(self._on_clipboard_radio_toggled)
+        self.rib_radio_select_expand.toggled.connect(self._on_expand_radio_toggled)
+
     def open_button_settings(self, button_id=None):
         """
         Open the RadialInterfaceButtonSettings window.
@@ -341,3 +349,19 @@ class RadialInterfaceButtonSettings(QWidget):
         # state ==  2 means checked (Qt.CheckState.Checked), state == 0 means unchecked
         is_checked = state == 2  # 2 is Qt.CheckState.Checked value
         self.rib_tooltip_config_btn.set_clickable(is_checked)
+
+    def _on_clipboard_radio_toggled(self, checked):
+        """
+        Handle rib_radio_select_clipboard toggles to ensure mutual exclusivity with expand radio.
+        """
+        if checked:
+            # Clipboard radio was just checked - ensure expand is unchecked
+            self.rib_radio_select_expand.setChecked(False)
+
+    def _on_expand_radio_toggled(self, checked):
+        """
+        Handle rib_radio_select_expand toggles to ensure mutual exclusivity with clipboard radio.
+        """
+        if checked:
+            # Expand radio was just checked - ensure clipboard is unchecked
+            self.rib_radio_select_clipboard.setChecked(False)
