@@ -27,6 +27,7 @@ class Theme:
                 "error": "#DC3545",
                 "section_background": "#F8F9FA",
                 "circle_i": "#007AFF",
+                "checked_button": "#4CAF50"
             }
         else:  # dark mode
             return {
@@ -43,6 +44,7 @@ class Theme:
                 "error": "#F44336",
                 "section_background": "#2A2A2A",
                 "circle_i": "#87A8DC",
+                "checked_button": "#15a866"
             }
 
     @classmethod

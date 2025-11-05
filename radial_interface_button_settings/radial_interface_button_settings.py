@@ -6,6 +6,7 @@ from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
 from radial_interface_button_settings.ribs_radio_btn import RibsRadioBtn
 from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboardEditor
+from radial_interface_button_settings.emoji_symbol_picker.emoji_symbol_picker import EmojiSymbolPicker
 
 
 class RadialInterfaceButtonSettings(QWidget):
@@ -292,6 +293,12 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_radio_select_clipboard.toggled.connect(self._on_clipboard_radio_toggled)
         self.rib_radio_select_expand.toggled.connect(self._on_expand_radio_toggled)
 
+        # Instantiate the emoji/symbol picker
+        self.emoji_symbol_picker = EmojiSymbolPicker(parent=self)
+
+        # Connect symbol button to open emoji picker
+        self.rib_btn_title_symbol_btn.clicked.connect(self._on_symbol_btn_clicked)
+
     def open_button_settings(self, button_id=None):
         """
         Open the RadialInterfaceButtonSettings window.
@@ -390,3 +397,11 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_2_clipboard_editor.show()
         self.seq_2_clipboard_editor.raise_()
         self.seq_2_clipboard_editor.activateWindow()
+
+    def _on_symbol_btn_clicked(self):
+        """
+        Handle rib_btn_title_symbol_btn click to open emoji_symbol_picker.
+        """
+        self.emoji_symbol_picker.show()
+        self.emoji_symbol_picker.raise_()
+        self.emoji_symbol_picker.activateWindow()
