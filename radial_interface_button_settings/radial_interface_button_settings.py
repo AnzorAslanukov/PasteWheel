@@ -254,10 +254,10 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Create button type selection widgets in a 2x2 grid
         # Row 1, Column 1: Display label for clipboard
-        self.rib_radio_select_clipboard_disp_label = RibsLabel("Clipboard", "display", self, padding=0)
+        self.rib_radio_select_clipboard_disp_label = RibsLabel("Clipboard", "display", self, padding=0, size=[80, 15])
 
         # Row 1, Column 2: Display label for expand
-        self.rib_radio_select_expand_disp_label = RibsLabel("Expand", "display", self, padding=0)
+        self.rib_radio_select_expand_disp_label = RibsLabel("Expand", "display", self, padding=0, size=[80, 15])
 
         # Row 2, Column 1: Radio button for clipboard (checked=True)
         self.rib_radio_select_clipboard = RibsRadioBtn("", checked=True, parent=self)

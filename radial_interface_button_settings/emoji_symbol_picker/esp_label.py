@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from theme import Theme
 
 
-class RibsLabel(QWidget):
+class EspLabel(QWidget):
     def __init__(
         self,
         text="",
@@ -17,10 +17,14 @@ class RibsLabel(QWidget):
         input_unclickable_tooltip="",
         max_length=256,
         input_alignment="left",
-        size=None
+        size=None,
+        bordered=True
     ):
         """
-        Initialize the RibsLabel.
+        Initialize the EspLabel. A specialized label for EmojiSymbolPicker components.
+
+        This label handles the same parameters as RibsLabel but operates differently by
+        providing enhanced emoji/symbol text rendering specific to emoji selection contexts.
 
         Args:
             text: The text to display
@@ -35,15 +39,17 @@ class RibsLabel(QWidget):
             max_length: Maximum number of characters allowed in input-type labels (default: 256)
             input_alignment: Text alignment for input-type labels ("left", "center", "right"; default: "left")
             size: List [width, height] to set fixed size, or None for content-based sizing (default: None)
+            bordered: Boolean indicating if input-type labels should have border (default: True)
         """
         super().__init__(parent)
 
-        # Store label type, padding, margin, clickable state, and tooltips
+        # Store label type, padding, margin, clickable state, tooltips, and bordered state
         self.label_type = label_type
         self.is_input_type = (label_type == "input")
         self.padding = padding
         self.margin = margin
         self.clickable = clickable
+        self.bordered = bordered
         self.display_tooltip = display_tooltip
         self.input_clickable_tooltip = input_clickable_tooltip
         self.input_unclickable_tooltip = input_unclickable_tooltip
@@ -59,7 +65,7 @@ class RibsLabel(QWidget):
             if not self.clickable:
                 self.widget.setEnabled(False)
         else:
-            # Process text to style "ⓘ" character
+            # Process text to style emojis and symbols specifically for emoji picker
             styled_text = self._process_text_for_styling(text)
             self.widget = QLabel(styled_text, self)
 
@@ -93,38 +99,48 @@ class RibsLabel(QWidget):
         self.widget.leaveEvent = lambda event: self.leaveEvent(event)
 
     def _apply_style(self):
-        """Apply theme-based styling to the label."""
+        """Apply theme-based styling to the label, optimized for emoji picker context."""
         # Get appropriate colors from theme
         background_color = self.colors.get("background", "#FFFFFF")
         text_color = self.colors.get("text", "#000000")
+        border_color = self.colors.get("border", "#CCCCCC")
 
-        # Apply stylesheet - remove color changes for unclickable state
+        # Set border style based on bordered parameter
+        if self.bordered:
+            border_style = f"border: 1px solid {border_color};"
+        else:
+            border_style = "border: none;"
+
+        # Apply stylesheet - adjusted for compact emoji picker display
         self.setStyleSheet(f"""
             QLabel {{
                 background-color: {background_color};
                 color: {text_color};
+                {border_style}
                 padding: {self.padding}px;
                 margin: {self.margin}px;
+                font-size: 14px;  /* Slightly larger for emoji visibility */
             }}
             QLineEdit {{
                 background-color: {background_color};
                 color: {text_color};
-                border: 1px solid {self.colors.get("border", "#CCCCCC")};
+                {border_style}
                 padding: {self.padding}px;
                 margin: {self.margin}px;
+                font-size: 14px;
             }}
         """)
 
-        # Set opacity using QGraphicsOpacityEffect
+        # Set opacity using QGraphicsOpacityEffect for emoji picker visual feedback
         opacity_effect = QGraphicsOpacityEffect()
-        if not self.clickable:
-            opacity_effect.setOpacity(0.5)
+        if not self.clickable and self.is_input_type:
+            opacity_effect.setOpacity(0.6)  # Different opacity for emoji picker context
         else:
             opacity_effect.setOpacity(1.0)
         self.setGraphicsEffect(opacity_effect)
 
     def enterEvent(self, event):
-        """Handle mouse enter event - change rib_btn_title_char_input_label based on label type and clickability, show tooltips."""
+        """Handle mouse enter event - customized for emoji picker interaction with context-specific cursor behavior."""
         if self.is_input_type and self.clickable:
             self.setCursor(Qt.IBeamCursor)
             if self.input_clickable_tooltip:
@@ -138,18 +154,22 @@ class RibsLabel(QWidget):
             else:
                 self.setToolTip("")
         elif not self.is_input_type and self.clickable:  # display type and clickable
+            # For display labels, use standard arrow cursor (no pointing hand)
+            self.setCursor(Qt.ArrowCursor)
             if self.display_tooltip:
                 self.setToolTip(self.display_tooltip)
-                self.setCursor(Qt.ArrowCursor)
             else:
                 self.setToolTip("")
-                self.setCursor(Qt.ArrowCursor)
+        else:
+            self.setCursor(Qt.ArrowCursor)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        """Handle mouse leave event - restore cursor based on clickability."""
-        if self.clickable:
+        """Handle mouse leave event - restore cursor with emoji picker specific behavior."""
+        if self.clickable and not self.is_input_type:
             self.setCursor(Qt.ArrowCursor)
+        elif self.clickable and self.is_input_type:
+            self.setCursor(Qt.IBeamCursor)
         else:
             self.setCursor(Qt.ForbiddenCursor)
         super().leaveEvent(event)
@@ -161,30 +181,33 @@ class RibsLabel(QWidget):
 
     def _process_text_for_styling(self, text):
         """
-        Process text to apply special styling to the "ⓘ" character if present.
+        Process text to apply special styling for emojis and symbols in emoji picker context.
 
         Args:
             text: The original text string
 
         Returns:
-            Processed text with HTML styling for the special character
+            Processed text with HTML styling for emoji characters
         """
-        # Check if "ⓘ" character exists in the text
-        if "ⓘ" in text:
-            # Get the circle_i color from theme
-            circle_i_color = self.colors.get("circle_i", "#007AFF")
+        # Check if text contains emoji-like characters (basic unicode ranges)
+        has_emoji = any(0x1F600 <= ord(c) <= 0x1F9FF or  # Emoticons, Misc Symbols and Pictographs
+                        0x2600 <= ord(c) <= 0x26FF for c in text)  # Misc symbols
 
-            # Replace "ⓘ" with styled version (bold and colored)
-            styled_text = text.replace("ⓘ", f'<font color="{circle_i_color}"><b>ⓘ</b></font>')
-
-            # Return as HTML-formatted text
-            return f'<html><body>{styled_text}</body></html>'
+        if has_emoji:
+            # Style emojis larger for better visibility in picker
+            styled_parts = []
+            for c in text:
+                if 0x1F600 <= ord(c) <= 0x1F9FF or 0x2600 <= ord(c) <= 0x26FF:
+                    styled_parts.append(f'<span style="font-size: 20px;">{c}</span>')
+                else:
+                    styled_parts.append(c)
+            return f'<html><body>{"".join(styled_parts)}</body></html>'
         else:
-            # No special character, return original text
+            # No emoji characters, return original text
             return text
 
     def set_clickable(self, clickable):
-        """Set the clickable state and update visual feedback."""
+        """Set the clickable state and update visual feedback for emoji picker."""
         self.clickable = clickable
         if self.is_input_type and isinstance(self.widget, QLineEdit):
             self.widget.setEnabled(clickable)

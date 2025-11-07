@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButt
 from PyQt5.QtCore import Qt
 from theme import Theme
 from radial_interface_button_settings.ribs_label import RibsLabel
+from radial_interface_button_settings.emoji_symbol_picker.esp_label import EspLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_btn import EspBtn
 
 
@@ -21,7 +22,7 @@ class EmojiSymbolPicker(QWidget):
         self.setWindowTitle("Emoji / Symbol Picker")
 
         # Set default window size
-        self.setFixedSize(400, 400)
+        self.setFixedSize(400, 600)
 
         # Position the window offset from parent to make it visible
         if parent:
@@ -52,10 +53,10 @@ class EmojiSymbolPicker(QWidget):
         search_layout = QHBoxLayout()
 
         # Search display label - set smaller padding to make it compact
-        self.esp_search_disp_label = RibsLabel("Search:", margin=0, padding=0)
+        self.esp_search_disp_label = EspLabel("Search:", margin=0, padding=0, bordered=False)
 
         # Search input label
-        self.esp_search_input_label = RibsLabel("", label_type="input")
+        self.esp_search_input_label = EspLabel("", label_type="input")
 
         # Add labels to search layout (left to right, close together)
         search_layout.addWidget(self.esp_search_disp_label)
@@ -78,7 +79,7 @@ class EmojiSymbolPicker(QWidget):
         categories_layout = QGridLayout(self.esp_categories_section)
 
         # Categories section display label
-        self.esp_categories_section_disp_label = RibsLabel("Select emoji or symbol category")
+        self.esp_categories_section_disp_label = EspLabel("Select emoji or symbol category")
         # Span the label across all 4 columns
         categories_layout.addWidget(self.esp_categories_section_disp_label, 0, 0, 1, 4, Qt.AlignCenter)
 
@@ -109,6 +110,12 @@ class EmojiSymbolPicker(QWidget):
 
         # Add categories section to main layout
         layout.addWidget(self.esp_categories_section)
+
+        # Create emoji symbol selection widget with scroll area
+        self.emoji_symbol_selection = self.EmojiSymbolSelection()
+
+        # Add emoji symbol selection to main layout below categories
+        layout.addWidget(self.emoji_symbol_selection)
 
         # Apply basic styling
         self.apply_styling()
@@ -159,6 +166,75 @@ class EmojiSymbolPicker(QWidget):
         # Placeholder - could emit signals or call parent functions
         print(f"Selected: {symbol}")
 
+    class EmojiSymbolSelection(QWidget):
+        """
+        A scrollable widget for displaying selected emoji/symbol results.
+        """
+
+        def __init__(self, parent=None):
+            """
+            Initialize the EmojiSymbolSelection widget.
+
+            Args:
+                parent: Parent widget (optional)
+            """
+            super().__init__(parent)
+
+            # Get theme colors
+            self.theme = Theme()
+            self.colors = self.theme.get_colors()
+
+            # Initialize the UI
+            self.initUI()
+
+        def initUI(self):
+            """Initialize the EmojiSymbolSelection UI."""
+            # Create scroll area
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+            # Create content widget for scroll area
+            content_widget = QWidget()
+            content_layout = QVBoxLayout(content_widget)
+
+            # Add a placeholder label for now
+            placeholder_label = QLabel("Emoji/Symbol results will appear here")
+            placeholder_label.setAlignment(Qt.AlignCenter)
+            placeholder_label.setStyleSheet(f"""
+                QLabel {{
+                    color: {self.colors.get("text", "#000000")};
+                    padding: 20px;
+                    font-size: 14px;
+                }}
+            """)
+            content_layout.addWidget(placeholder_label)
+
+            # Set content widget in scroll area
+            scroll_area.setWidget(content_widget)
+
+            # Main layout
+            layout = QVBoxLayout(self)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(scroll_area)
+
+            # Apply theme styling
+            self.apply_styling()
+
+        def apply_styling(self):
+            """Apply theme-based styling."""
+            background_color = self.colors.get("section_background", "#F8F9FA")
+            border_color = self.colors.get("border", "#CCCCCC")
+
+            self.setStyleSheet(f"""
+                QWidget {{
+                    background-color: {background_color};
+                    border: 1px solid {border_color};
+                    border-radius: 8px;
+                }}
+            """)
+
     def apply_styling(self):
         """Apply theme-based styling to the EmojiSymbolPicker."""
         background_color = self.colors.get("background", "#FFFFFF")
@@ -170,10 +246,5 @@ class EmojiSymbolPicker(QWidget):
                 background-color: {background_color};
                 color: {text_color};
                 border: 1px solid {border_color};
-            }}
-            QLabel {{
-                color: {text_color};
-                font-weight: bold;
-                padding: 10px;
             }}
         """)
