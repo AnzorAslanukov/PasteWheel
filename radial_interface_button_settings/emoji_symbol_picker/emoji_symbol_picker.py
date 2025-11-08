@@ -199,18 +199,6 @@ class EmojiSymbolPicker(QWidget):
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
 
-            # Add a placeholder label for now
-            placeholder_label = QLabel("Emoji/Symbol results will appear here")
-            placeholder_label.setAlignment(Qt.AlignCenter)
-            placeholder_label.setStyleSheet(f"""
-                QLabel {{
-                    color: {self.colors.get("text", "#000000")};
-                    padding: 20px;
-                    font-size: 14px;
-                }}
-            """)
-            content_layout.addWidget(placeholder_label)
-
             # Set content widget in scroll area
             scroll_area.setWidget(content_widget)
 
