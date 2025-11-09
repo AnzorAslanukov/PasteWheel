@@ -213,15 +213,40 @@ class EmojiSymbolPicker(QWidget):
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
 
-            # Add category header labels to content layout
+            # Create individual QGridLayout instances for each category
+            self.ess_grid_layout_smiley = QGridLayout()
+            self.ess_grid_layout_nature = QGridLayout()
+            self.ess_grid_layout_food = QGridLayout()
+            self.ess_grid_layout_activities = QGridLayout()
+            self.ess_grid_layout_travel = QGridLayout()
+            self.ess_grid_layout_objects = QGridLayout()
+            self.ess_grid_layout_symbols = QGridLayout()
+            self.ess_grid_layout_flags = QGridLayout()
+
+            # Add category header labels and grid layouts to content layout
             content_layout.addWidget(self.ess_esp_label_smiley)
+            content_layout.addLayout(self.ess_grid_layout_smiley)
+
             content_layout.addWidget(self.ess_esp_label_nature)
+            content_layout.addLayout(self.ess_grid_layout_nature)
+
             content_layout.addWidget(self.ess_esp_label_food)
+            content_layout.addLayout(self.ess_grid_layout_food)
+
             content_layout.addWidget(self.ess_esp_label_activities)
+            content_layout.addLayout(self.ess_grid_layout_activities)
+
             content_layout.addWidget(self.ess_esp_label_travel)
+            content_layout.addLayout(self.ess_grid_layout_travel)
+
             content_layout.addWidget(self.ess_esp_label_objects)
+            content_layout.addLayout(self.ess_grid_layout_objects)
+
             content_layout.addWidget(self.ess_esp_label_symbols)
+            content_layout.addLayout(self.ess_grid_layout_symbols)
+
             content_layout.addWidget(self.ess_esp_label_flags)
+            content_layout.addLayout(self.ess_grid_layout_flags)
 
             # Set content widget in scroll area
             scroll_area.setWidget(content_widget)
