@@ -17,6 +17,7 @@ class EspLabel(QWidget):
         input_unclickable_tooltip="",
         max_length=256,
         input_alignment="left",
+        display_alignment="left",
         size=None,
         bordered=True
     ):
@@ -43,13 +44,14 @@ class EspLabel(QWidget):
         """
         super().__init__(parent)
 
-        # Store label type, padding, margin, clickable state, tooltips, and bordered state
+        # Store label type, padding, margin, clickable state, tooltips, alignments, and bordered state
         self.label_type = label_type
         self.is_input_type = (label_type == "input")
         self.padding = padding
         self.margin = margin
         self.clickable = clickable
         self.bordered = bordered
+        self.display_alignment = display_alignment.lower()
         self.display_tooltip = display_tooltip
         self.input_clickable_tooltip = input_clickable_tooltip
         self.input_unclickable_tooltip = input_unclickable_tooltip
@@ -77,6 +79,10 @@ class EspLabel(QWidget):
                 self.widget.setAlignment(Qt.AlignCenter)
             elif input_alignment.lower() == "right":
                 self.widget.setAlignment(Qt.AlignRight)
+
+        # Set display alignment for display-type labels
+        elif not self.is_input_type and isinstance(self.widget, QLabel):
+            self._set_display_alignment()
 
         # Apply styling
         self._apply_style()
@@ -205,6 +211,16 @@ class EspLabel(QWidget):
         else:
             # No emoji characters, return original text
             return text
+
+    def _set_display_alignment(self):
+        """Set the alignment for display-type labels based on display_alignment parameter."""
+        if isinstance(self.widget, QLabel):
+            if self.display_alignment == "left":
+                self.widget.setAlignment(Qt.AlignLeft)
+            elif self.display_alignment == "center":
+                self.widget.setAlignment(Qt.AlignCenter)
+            elif self.display_alignment == "right":
+                self.widget.setAlignment(Qt.AlignRight)
 
     def set_clickable(self, clickable):
         """Set the clickable state and update visual feedback for emoji picker."""

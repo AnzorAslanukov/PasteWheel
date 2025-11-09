@@ -184,6 +184,16 @@ class EmojiSymbolPicker(QWidget):
             self.theme = Theme()
             self.colors = self.theme.get_colors()
 
+            # Instantiate EspLabel objects for category headers
+            self.ess_esp_label_smiley = EspLabel(text="----- Smileys -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_nature = EspLabel(text="----- Nature -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_food = EspLabel(text="----- Food/Drink -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_activities = EspLabel(text="----- Activities -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_travel = EspLabel(text="----- Travel -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_objects = EspLabel(text="----- Objects -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_symbols = EspLabel(text="----- Symbols -----", display_alignment="center", bordered=False)
+            self.ess_esp_label_flags = EspLabel(text="----- Flags -----", display_alignment="center", bordered=False)
+
             # Initialize the UI
             self.initUI()
 
@@ -198,6 +208,16 @@ class EmojiSymbolPicker(QWidget):
             # Create content widget for scroll area
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
+
+            # Add category header labels to content layout
+            content_layout.addWidget(self.ess_esp_label_smiley)
+            content_layout.addWidget(self.ess_esp_label_nature)
+            content_layout.addWidget(self.ess_esp_label_food)
+            content_layout.addWidget(self.ess_esp_label_activities)
+            content_layout.addWidget(self.ess_esp_label_travel)
+            content_layout.addWidget(self.ess_esp_label_objects)
+            content_layout.addWidget(self.ess_esp_label_symbols)
+            content_layout.addWidget(self.ess_esp_label_flags)
 
             # Set content widget in scroll area
             scroll_area.setWidget(content_widget)

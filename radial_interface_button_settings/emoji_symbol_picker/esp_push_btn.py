@@ -31,6 +31,9 @@ class EspPushBtn(QPushButton):
         if self.display_tooltip:
             self.setToolTip(self.display_tooltip)
 
+        # Set fixed size for the button
+        self.setFixedSize(40, 40)
+
         # Initialize button styling
         self._apply_style()
 
@@ -64,8 +67,8 @@ class EspPushBtn(QPushButton):
                 color: {text_color};
                 border: 1px solid {border_color};
                 border-radius: 8px;
-                padding: 8px 16px;
-                font-size: 16px;
+                padding: 0px 0px;
+                font-size: 28px;
                 font-weight: bold;
             }}
         """)
