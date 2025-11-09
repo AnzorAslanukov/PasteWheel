@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QGridLayout, QScrollArea
 from PyQt5.QtCore import Qt
 from theme import Theme
+from pastewheel_config import PasteWheelConfig
 from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_label import EspLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_btn import EspBtn
@@ -179,6 +180,9 @@ class EmojiSymbolPicker(QWidget):
                 parent: Parent widget (optional)
             """
             super().__init__(parent)
+
+            # Instantiate PasteWheelConfig object for emoji data access
+            self.emoji_data = PasteWheelConfig()
 
             # Get theme colors
             self.theme = Theme()

@@ -6,6 +6,9 @@ class PasteWheelConfig:
     """Configuration manager for PasteWheel application."""
 
     CONFIG_FILE = "pastewheel_config.json"
+    EMOJI_DATA_FILE = "radial_interface_button_settings/emoji_symbol_picker/emoji_data.json"
+    EMOJI_CACHE = None  # Class-level cache for emoji data
+
     DEFAULT_CONFIG = {
         "theme": "light",
         "buttons": [],
@@ -222,15 +225,125 @@ class PasteWheelConfig:
     def has_any_buttons(self):
         """
         Check if any button data exists in configuration.
-        
+
         Returns:
             True if any buttons with 'id' key exist, False otherwise
         """
         all_buttons = self.config.get("buttons", [])
-        
+
         # Check if any button has an 'id' key with a value
         for button in all_buttons:
             if button.get("id") is not None:
                 return True
-        
+
         return False
+
+    # Emoji Data Management Methods
+
+    @classmethod
+    def load_emoji_data(cls):
+        """
+        Load emoji data from emoji_data.json file with caching.
+        Only loads once and caches the result for future access.
+
+        Returns:
+            Dictionary containing emoji data
+        """
+        if cls.EMOJI_CACHE is not None:
+            return cls.EMOJI_CACHE
+
+        if os.path.exists(cls.EMOJI_DATA_FILE):
+            try:
+                with open(cls.EMOJI_DATA_FILE, 'r', encoding='utf-8') as file:
+                    emoji_data = json.load(file)
+                    cls.EMOJI_CACHE = emoji_data
+                    return emoji_data
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error reading emoji data file: {e}")
+                return {}
+        else:
+            print(f"Emoji data file not found: {cls.EMOJI_DATA_FILE}")
+            return {}
+
+    @classmethod
+    def get_all_emojis(cls):
+        """
+        Get all emoji data from the emoji database.
+
+        Returns:
+            Dictionary containing all emoji data, with emoji codes as keys
+        """
+        return cls.load_emoji_data()
+
+    @classmethod
+    def get_emoji_by_code(cls, emoji_code):
+        """
+        Get emoji data by its colon code.
+
+        Args:
+            emoji_code: Emoji code in colon format (e.g., ":1st_place_medal:")
+
+        Returns:
+            Dictionary containing emoji description and category, or None if not found
+        """
+        emoji_data = cls.load_emoji_data()
+        return emoji_data.get(emoji_code)
+
+    @classmethod
+    def get_emojis_by_category(cls, category):
+        """
+        Get all emojis that belong to a specific category.
+
+        Args:
+            category: Category name (e.g., "flags", "symbols")
+
+        Returns:
+            Dictionary of emoji codes and their data for the given category
+        """
+        emoji_data = cls.load_emoji_data()
+        category_emojis = {}
+
+        for emoji_code, data in emoji_data.items():
+            if data.get("category") == category:
+                category_emojis[emoji_code] = data
+
+        return category_emojis
+
+    @classmethod
+    def search_emojis(cls, query):
+        """
+        Search for emojis by description text.
+
+        Args:
+            query: Search string to match against emoji descriptions (case-insensitive)
+
+        Returns:
+            Dictionary of emoji codes and their data that match the search query
+        """
+        emoji_data = cls.load_emoji_data()
+        query_lower = query.lower()
+        search_results = {}
+
+        for emoji_code, data in emoji_data.items():
+            if query_lower in data.get("description", "").lower():
+                search_results[emoji_code] = data
+
+        return search_results
+
+    @classmethod
+    def get_all_categories(cls):
+        """
+        Get all unique categories from the emoji data.
+
+        Returns:
+            Set of unique category names
+        """
+        emoji_data = cls.load_emoji_data()
+        categories = set()
+
+        for data in emoji_data.values():
+            category = data.get("category")
+            if category:
+                categories.add(category)
+
+        return categories
