@@ -70,6 +70,8 @@ class EspPushBtn(QPushButton):
                 padding: 0px 0px;
                 font-size: 28px;
                 font-weight: bold;
+                text-align: center;
+                qproperty-alignment: AlignCenter;
             }}
         """)
 

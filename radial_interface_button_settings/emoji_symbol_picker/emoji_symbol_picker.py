@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QGridLayout, QScrollArea
+import emoji
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QGridLayout, QScrollArea
 from PyQt5.QtCore import Qt
 from theme import Theme
 from pastewheel_config import PasteWheelConfig
@@ -121,52 +122,6 @@ class EmojiSymbolPicker(QWidget):
 
         # Apply basic styling
         self.apply_styling()
-
-    def create_symbol_button(self, symbol):
-        """
-        Create a button for a symbol/emoji.
-
-        Args:
-            symbol: The symbol or emoji character
-
-        Returns:
-            QPushButton: Configured button for the symbol
-        """
-        btn = QPushButton(symbol)
-        btn.setFixedSize(40, 40)
-
-        # Theme-aware styling
-        background_color = self.colors.get("button", "#F0F0F0")
-        text_color = self.colors.get("text", "#000000")
-        border_color = self.colors.get("border", "#CCCCCC")
-
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {background_color};
-                color: {text_color};
-                border: 1px solid {border_color};
-                border-radius: 4px;
-                font-size: 18px;
-            }}
-            QPushButton:hover {{
-                background-color: {self.colors.get("button_hover", "#E0E0E0")};
-            }}
-        """)
-
-        # Connect click signal (placeholder for now)
-        btn.clicked.connect(lambda: self.on_symbol_selected(symbol))
-
-        return btn
-
-    def on_symbol_selected(self, symbol):
-        """
-        Handle symbol selection.
-
-        Args:
-            symbol: The selected symbol/emoji
-        """
-        # Placeholder - could emit signals or call parent functions
-        print(f"Selected: {symbol}")
 
     class EmojiSymbolSelection(QWidget):
         """
@@ -298,8 +253,9 @@ class EmojiSymbolPicker(QWidget):
                 # Get the appropriate grid layout
                 grid_layout = category_grids[category]
 
-                # Create the EspPushBtn with emoji code as label and description as tooltip
-                emoji_btn = EspPushBtn(label=emoji_code, display_tooltip=description)
+                # Convert emoji code to actual emoji character and create the EspPushBtn
+                emoji_char = emoji.emojize(emoji_code)
+                emoji_btn = EspPushBtn(label=emoji_char, display_tooltip=description)
 
                 # Calculate row and column for 6 buttons per row
                 button_index = grid_counters[category]
