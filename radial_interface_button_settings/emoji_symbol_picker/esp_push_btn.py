@@ -107,5 +107,12 @@ class EspPushBtn(QPushButton):
             # Toggle checked state on click for clickable buttons
             self.checked = not self.checked
             self._apply_style()
+
+            # If we have an emoji code, save the new state to emoji_data.json
+            if hasattr(self, 'emoji_code'):
+                from pastewheel_config import PasteWheelConfig
+                config = PasteWheelConfig()
+                config.update_emoji_state(self.emoji_code, checked=self.checked)
+
             super().mousePressEvent(event)
         # Non-clickable buttons ignore mouse presses

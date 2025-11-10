@@ -253,9 +253,19 @@ class EmojiSymbolPicker(QWidget):
                 # Get the appropriate grid layout
                 grid_layout = category_grids[category]
 
-                # Convert emoji code to actual emoji character and create the EspPushBtn
+                # Convert emoji code to actual emoji character
                 emoji_char = emoji.emojize(emoji_code)
-                emoji_btn = EspPushBtn(label=emoji_char, display_tooltip=description)
+
+                # Get button state data from emoji_info
+                checked_state = emoji_info.get("checked", "False") == "True"
+                clickable_state = emoji_info.get("clickable", "True") == "True"
+
+                # Create the EspPushBtn with proper states
+                emoji_btn = EspPushBtn(label=emoji_char, display_tooltip=description,
+                                      checked=checked_state, clickable=clickable_state)
+
+                # Associate emoji code with button for state saving
+                emoji_btn.emoji_code = emoji_code
 
                 # Calculate row and column for 6 buttons per row
                 button_index = grid_counters[category]

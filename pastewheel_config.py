@@ -347,3 +347,56 @@ class PasteWheelConfig:
                 categories.add(category)
 
         return categories
+
+    @classmethod
+    def update_emoji_state(cls, emoji_code, checked=None, clickable=None):
+        """
+        Update checked and/or clickable state for a specific emoji in emoji_data.json.
+
+        Args:
+            emoji_code: Emoji code in colon format (e.g., ":1st_place_medal:")
+            checked: Boolean value for checked state (True/False), or None to skip
+            clickable: Boolean value for clickable state (True/False), or None to skip
+
+        Returns:
+            True if update was successful, False otherwise
+
+        Raises:
+            ValueError: If emoji_code is not found or parameters are invalid
+        """
+        # Validate parameters
+        if checked is None and clickable is None:
+            raise ValueError("At least one of 'checked' or 'clickable' must be provided")
+
+        if checked is not None and not isinstance(checked, bool):
+            raise ValueError("'checked' must be a boolean value")
+
+        if clickable is not None and not isinstance(clickable, bool):
+            raise ValueError("'clickable' must be a boolean value")
+
+        # Load current emoji data
+        emoji_data = cls.load_emoji_data()
+
+        # Check if emoji exists
+        if emoji_code not in emoji_data:
+            raise ValueError(f"Emoji '{emoji_code}' not found in emoji data")
+
+        # Update only the allowed fields
+        emoji_record = emoji_data[emoji_code]
+
+        if checked is not None:
+            emoji_record["checked"] = str(checked)
+
+        if clickable is not None:
+            emoji_record["clickable"] = str(clickable)
+
+        # Write the updated data back to the file
+        try:
+            with open(cls.EMOJI_DATA_FILE, 'w', encoding='utf-8') as file:
+                json.dump(emoji_data, file, indent=2, ensure_ascii=False)
+            # Clear cache to force reload on next access
+            cls.EMOJI_CACHE = None
+            return True
+        except IOError as e:
+            print(f"Error writing emoji data file: {e}")
+            return False

@@ -1,54 +1,80 @@
 {
   ":1st_place_medal:": {
     "description": "A gold medal representing first place in a competition or achievement.",
-    "category": "symbols"
+    "category": "symbols",
+    "checked": "False",
+    "clickable": "True"
   },
   ":2nd_place_medal:": {
     "description": "A medal awarded for achieving second place in a competition.",
-    "category": "symbols"
+    "category": "symbols",
+    "checked": "False",
+    "clickable": "True"
   },
   ":3rd_place_medal:": {
     "description": "A medal representing third place in a competition.",
-    "category": "symbols"
+    "category": "symbols",
+    "checked": "False",
+    "clickable": "True"
   },
   ":AB_button_(blood_type):": {
     "description": "Represents blood type AB, used in medical contexts.",
-    "category": "symbols"
+    "category": "symbols",
+    "checked": "False",
+    "clickable": "True"
   },
   ":ATM_sign:": {
     "description": "A sign indicating the presence of an automated teller machine.",
-    "category": "symbols"
+    "category": "symbols",
+    "checked": "False",
+    "clickable": "True"
   },
   ":A_button_(blood_type):": {
     "description": "Represents blood type A, often used in medical contexts.",
-    "category": "symbols"
+    "category": "symbols",
+    "checked": "False",
+    "clickable": "True"
   },
   ":Afghanistan:": {
     "description": "The flag of Afghanistan featuring black, red, and green stripes with a national emblem.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   },
   ":Albania:": {
     "description": "National flag of Albania featuring a black double-headed eagle on a red background.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   },
   ":Algeria:": {
     "description": "The flag of Algeria featuring green, white, and red colors with a crescent and star.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   },
   ":American_Samoa:": {
     "description": "Flag of American Samoa, a U.S. territory in the South Pacific.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   },
   ":Andorra:": {
     "description": "The flag of Andorra featuring vertical stripes of blue, yellow, and red with the national coat of arms.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   },
   ":Angola:": {
     "description": "Flag of Angola, representing the country in Southern Africa.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   },
   ":Anguilla:": {
     "description": "Flag of Anguilla, a British Overseas Territory in the Caribbean.",
-    "category": "flags"
+    "category": "flags",
+    "checked": "False",
+    "clickable": "True"
   }
 }
