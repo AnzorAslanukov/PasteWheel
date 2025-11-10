@@ -5,6 +5,7 @@ from pastewheel_config import PasteWheelConfig
 from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_label import EspLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_btn import EspBtn
+from radial_interface_button_settings.emoji_symbol_picker.esp_push_btn import EspPushBtn
 
 
 class EmojiSymbolPicker(QWidget):
@@ -258,6 +259,56 @@ class EmojiSymbolPicker(QWidget):
 
             # Apply theme styling
             self.apply_styling()
+
+            # Populate emoji buttons
+            self.populate_emojis()
+
+        def populate_emojis(self):
+            """
+            Populate the emoji/symbol selection with buttons from emoji_data.
+            Creates EspPushBtn instances for each emoji and places them in the appropriate category grids.
+            """
+            # Load emoji data
+            emojis = self.emoji_data.get_all_emojis()
+
+            # Mapping of categories to grid layouts
+            category_grids = {
+                "smiley": self.ess_grid_layout_smiley,
+                "nature": self.ess_grid_layout_nature,
+                "food": self.ess_grid_layout_food,
+                "activities": self.ess_grid_layout_activities,
+                "travel": self.ess_grid_layout_travel,
+                "objects": self.ess_grid_layout_objects,
+                "symbols": self.ess_grid_layout_symbols,
+                "flags": self.ess_grid_layout_flags
+            }
+
+            # Track button positions for each category grid (6 buttons per row, then new row)
+            grid_counters = {category: 0 for category in category_grids}
+
+            # Process each emoji
+            for emoji_code, emoji_info in emojis.items():
+                category = emoji_info.get("category")
+                description = emoji_info.get("description", "")
+
+                # Skip if category is not in our mapping
+                if category not in category_grids:
+                    continue
+
+                # Get the appropriate grid layout
+                grid_layout = category_grids[category]
+
+                # Create the EspPushBtn with emoji code as label and description as tooltip
+                emoji_btn = EspPushBtn(label=emoji_code, display_tooltip=description)
+
+                # Calculate row and column for 6 buttons per row
+                button_index = grid_counters[category]
+                row = button_index // 6
+                col = button_index % 6
+                grid_counters[category] += 1
+
+                # Add button to grid at calculated row and column position
+                grid_layout.addWidget(emoji_btn, row, col)
 
         def apply_styling(self):
             """Apply theme-based styling."""
