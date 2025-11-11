@@ -1,12 +1,8 @@
-import emoji
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QGridLayout, QScrollArea
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QScrollArea
 from PyQt5.QtCore import Qt
 from theme import Theme
-from pastewheel_config import PasteWheelConfig
-from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_label import EspLabel
 from radial_interface_button_settings.emoji_symbol_picker.esp_btn import EspBtn
-from radial_interface_button_settings.emoji_symbol_picker.esp_push_btn import EspPushBtn
 
 
 class EmojiSymbolPicker(QWidget):
@@ -123,6 +119,8 @@ class EmojiSymbolPicker(QWidget):
         # Apply basic styling
         self.apply_styling()
 
+
+
     class EmojiSymbolSelection(QWidget):
         """
         A scrollable widget for displaying selected emoji/symbol results.
@@ -137,8 +135,6 @@ class EmojiSymbolPicker(QWidget):
             """
             super().__init__(parent)
 
-            # Instantiate PasteWheelConfig object for emoji data access
-            self.emoji_data = PasteWheelConfig()
 
             # Get theme colors
             self.theme = Theme()
@@ -153,6 +149,7 @@ class EmojiSymbolPicker(QWidget):
             self.ess_esp_label_objects = EspLabel(text="----- Objects -----", display_alignment="center", bordered=False)
             self.ess_esp_label_symbols = EspLabel(text="----- Symbols -----", display_alignment="center", bordered=False)
             self.ess_esp_label_flags = EspLabel(text="----- Flags -----", display_alignment="center", bordered=False)
+
 
             # Initialize the UI
             self.initUI()
@@ -169,40 +166,15 @@ class EmojiSymbolPicker(QWidget):
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
 
-            # Create individual QGridLayout instances for each category
-            self.ess_grid_layout_smiley = QGridLayout()
-            self.ess_grid_layout_nature = QGridLayout()
-            self.ess_grid_layout_food = QGridLayout()
-            self.ess_grid_layout_activities = QGridLayout()
-            self.ess_grid_layout_travel = QGridLayout()
-            self.ess_grid_layout_objects = QGridLayout()
-            self.ess_grid_layout_symbols = QGridLayout()
-            self.ess_grid_layout_flags = QGridLayout()
-
-            # Add category header labels and grid layouts to content layout
+            # Add category header labels to content layout
             content_layout.addWidget(self.ess_esp_label_smiley)
-            content_layout.addLayout(self.ess_grid_layout_smiley)
-
             content_layout.addWidget(self.ess_esp_label_nature)
-            content_layout.addLayout(self.ess_grid_layout_nature)
-
             content_layout.addWidget(self.ess_esp_label_food)
-            content_layout.addLayout(self.ess_grid_layout_food)
-
             content_layout.addWidget(self.ess_esp_label_activities)
-            content_layout.addLayout(self.ess_grid_layout_activities)
-
             content_layout.addWidget(self.ess_esp_label_travel)
-            content_layout.addLayout(self.ess_grid_layout_travel)
-
             content_layout.addWidget(self.ess_esp_label_objects)
-            content_layout.addLayout(self.ess_grid_layout_objects)
-
             content_layout.addWidget(self.ess_esp_label_symbols)
-            content_layout.addLayout(self.ess_grid_layout_symbols)
-
             content_layout.addWidget(self.ess_esp_label_flags)
-            content_layout.addLayout(self.ess_grid_layout_flags)
 
             # Set content widget in scroll area
             scroll_area.setWidget(content_widget)
@@ -214,67 +186,6 @@ class EmojiSymbolPicker(QWidget):
 
             # Apply theme styling
             self.apply_styling()
-
-            # Populate emoji buttons
-            self.populate_emojis()
-
-        def populate_emojis(self):
-            """
-            Populate the emoji/symbol selection with buttons from emoji_data.
-            Creates EspPushBtn instances for each emoji and places them in the appropriate category grids.
-            """
-            # Load emoji data
-            emojis = self.emoji_data.get_all_emojis()
-
-            # Mapping of categories to grid layouts
-            category_grids = {
-                "smiley": self.ess_grid_layout_smiley,
-                "nature": self.ess_grid_layout_nature,
-                "food": self.ess_grid_layout_food,
-                "activities": self.ess_grid_layout_activities,
-                "travel": self.ess_grid_layout_travel,
-                "objects": self.ess_grid_layout_objects,
-                "symbols": self.ess_grid_layout_symbols,
-                "flags": self.ess_grid_layout_flags
-            }
-
-            # Track button positions for each category grid (6 buttons per row, then new row)
-            grid_counters = {category: 0 for category in category_grids}
-
-            # Process each emoji
-            for emoji_code, emoji_info in emojis.items():
-                category = emoji_info.get("category")
-                description = emoji_info.get("description", "")
-
-                # Skip if category is not in our mapping
-                if category not in category_grids:
-                    continue
-
-                # Get the appropriate grid layout
-                grid_layout = category_grids[category]
-
-                # Convert emoji code to actual emoji character
-                emoji_char = emoji.emojize(emoji_code)
-
-                # Get button state data from emoji_info
-                checked_state = emoji_info.get("checked", "False") == "True"
-                clickable_state = emoji_info.get("clickable", "True") == "True"
-
-                # Create the EspPushBtn with proper states
-                emoji_btn = EspPushBtn(label=emoji_char, display_tooltip=description,
-                                      checked=checked_state, clickable=clickable_state)
-
-                # Associate emoji code with button for state saving
-                emoji_btn.emoji_code = emoji_code
-
-                # Calculate row and column for 6 buttons per row
-                button_index = grid_counters[category]
-                row = button_index // 6
-                col = button_index % 6
-                grid_counters[category] += 1
-
-                # Add button to grid at calculated row and column position
-                grid_layout.addWidget(emoji_btn, row, col)
 
         def apply_styling(self):
             """Apply theme-based styling."""

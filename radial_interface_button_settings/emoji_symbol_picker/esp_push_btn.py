@@ -4,7 +4,7 @@ from theme import Theme
 
 
 class EspPushBtn(QPushButton):
-    def __init__(self, label="", parent=None, checked=False, clickable=True, display_tooltip=""):
+    def __init__(self, label="", parent=None, checked=False, clickable=True, display_tooltip="", parent_selection=None):
         """
         Initialize the EspPushBtn.
 
@@ -15,6 +15,7 @@ class EspPushBtn(QPushButton):
             clickable: Boolean indicating if button is clickable (default: True)
                 When False, button will not be clickable and shows forbidden cursor on hover
             display_tooltip: Tooltip text shown on hover (default: "")
+            parent_selection: Reference to EmojiSymbolSelection parent for refresh operations (default: None)
         """
         super().__init__(label, parent)
 
@@ -22,6 +23,7 @@ class EspPushBtn(QPushButton):
         self.checked = checked
         self.clickable = clickable
         self.display_tooltip = display_tooltip
+        self.parent_selection = parent_selection
 
         # Get theme colors
         theme = Theme()
@@ -102,17 +104,40 @@ class EspPushBtn(QPushButton):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
-        """Override mouse press to prevent clicking on non-clickable buttons."""
+        """Override mouse press to implement radio-button behavior with toggle."""
         if self.clickable:
-            # Toggle checked state on click for clickable buttons
-            self.checked = not self.checked
-            self._apply_style()
+            # For radio-button behavior: either all unchecked OR exactly one checked
 
-            # If we have an emoji code, save the new state to emoji_data.json
-            if hasattr(self, 'emoji_code'):
-                from pastewheel_config import PasteWheelConfig
-                config = PasteWheelConfig()
-                config.update_emoji_state(self.emoji_code, checked=self.checked)
+            # Import here to avoid circular dependencies
+            from pastewheel_config import PasteWheelConfig
+            config = PasteWheelConfig()
+
+            # If we have an emoji code and parent selection reference, implement exclusive checking
+            if hasattr(self, 'emoji_code') and self.parent_selection is not None:
+                # Get current state of the clicked emoji
+                current_state = config.get_emoji_by_code(self.emoji_code).get("checked", "False") == "True"
+
+                if current_state:
+                    # If clicked emoji is already checked, uncheck ALL emojis (result: all unchecked)
+                    all_emojis = config.get_all_emojis()
+                    for code in all_emojis.keys():
+                        config.update_emoji_state(code, checked=False)
+                else:
+                    # If clicked emoji is not checked, uncheck all and check only this one
+                    all_emojis = config.get_all_emojis()
+                    for code in all_emojis.keys():
+                        config.update_emoji_state(code, checked=False)
+                    config.update_emoji_state(self.emoji_code, checked=True)
+
+                # Force refresh of the emoji selection UI to reflect changes
+                if hasattr(self.parent_selection, 'refresh_buttons'):
+                    self.parent_selection.refresh_buttons()
+            else:
+                # Fallback to old behavior if no proper setup
+                self.checked = not self.checked
+                self._apply_style()
+                if hasattr(self, 'emoji_code'):
+                    config.update_emoji_state(self.emoji_code, checked=self.checked)
 
             super().mousePressEvent(event)
         # Non-clickable buttons ignore mouse presses

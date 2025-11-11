@@ -1,3 +1,4 @@
 pyperclip
 pynput
 PyQt5
+emoji
