@@ -27,7 +27,16 @@ class Theme:
                 "error": "#DC3545",
                 "section_background": "#F8F9FA",
                 "circle_i": "#007AFF",
-                "checked_button": "#4CAF50"
+                "checked_button": "#4CAF50",
+                # Table model specific colors
+                "table_background": "#FFFFFF",
+                "table_border": "#E0E0E0",
+                "table_gridline": "#F0F0F0",
+                "table_text": "#000000",
+                "table_selection_background": "#007BFF",
+                "table_selection_text": "#FFFFFF",
+                "table_hover_background": "#E8F4F8",
+                "table_alternate_background": "#FAFBFC"
             }
         else:  # dark mode
             return {
@@ -44,7 +53,16 @@ class Theme:
                 "error": "#F44336",
                 "section_background": "#2A2A2A",
                 "circle_i": "#87A8DC",
-                "checked_button": "#15a866"
+                "checked_button": "#15a866",
+                # Table model specific colors
+                "table_background": "#252525",
+                "table_border": "#404040",
+                "table_gridline": "#333333",
+                "table_text": "#FFFFFF",
+                "table_selection_background": "#0D47A1",
+                "table_selection_text": "#FFFFFF",
+                "table_hover_background": "#1E3A5F",
+                "table_alternate_background": "#2A2A2A"
             }
 
     @classmethod

@@ -9,8 +9,11 @@ import emoji as emoji_lib  # type: ignore
 
 
 # Global variables for emoji cell sizing - modify these to change all table cell dimensions
-EMOJI_CELL_WIDTH = 80   # Width of each emoji cell in pixels
-EMOJI_CELL_HEIGHT = 48  # Height of each emoji cell in pixels
+EMOJI_CELL_WIDTH = 80      # Width of each emoji cell in pixels
+EMOJI_CELL_HEIGHT = 48     # Height of each emoji cell in pixels
+EMOJI_FONT_SIZE = 30       # Font size for emoji display in pixels
+EMOJI_CELL_PADDING = 0     # Padding inside each emoji cell in pixels
+EMOJI_TABLE_PADDING = 8    # Padding around the table in pixels
 
 
 class EmojiSymbolPicker(QWidget):
@@ -183,15 +186,15 @@ class EmojiSymbolPicker(QWidget):
                 return info.get("description", "")
 
             if role == Qt.BackgroundRole:
-                # Return theme-aware background color for cells with data
-                return QColor(self.colors.get("section_background", "#F8F9FA"))
+                # Let the view handle alternating colors through stylesheet
+                return None
 
             if role == Qt.TextAlignmentRole:
                 return Qt.AlignCenter
 
             if role == Qt.FontRole:
                 font = QFont()
-                font.setPixelSize(20)  # Larger font for emoji visibility
+                font.setPixelSize(EMOJI_FONT_SIZE)  # Font size using global variable
                 return font
 
             return None
@@ -205,6 +208,7 @@ class EmojiSymbolPicker(QWidget):
     class EmojiSymbolSelection(QWidget):
         """
         A scrollable widget for displaying selected emoji/symbol results.
+        Manages global selection state across all table views.
         """
 
         def __init__(self, parent=None):
@@ -219,6 +223,9 @@ class EmojiSymbolPicker(QWidget):
             # Get theme colors
             self.theme = Theme()
             self.colors = self.theme.get_colors()
+
+            # Store all table views for global selection management
+            self.all_table_views = []
 
             # Instantiate EspLabel objects for category headers
             self.ess_esp_label_smiley = EspLabel(text="----- Smileys -----", display_alignment="center", bordered=False)
@@ -245,6 +252,46 @@ class EmojiSymbolPicker(QWidget):
 
             # Initialize the UI
             self.initUI()
+
+        def clear_all_selections(self):
+            """Clear selections in all table views."""
+            for table_view in self.all_table_views:
+                table_view.selectionModel().clearSelection()
+
+        def populate_models(self):
+            """Populate all table models with categorized emoji data efficiently."""
+            emoji_data = PasteWheelConfig.get_all_emojis()
+            if not isinstance(emoji_data, dict):
+                return
+
+            # Category mapping
+            category_map = {
+                "smiley": self.ess_qtableview_model_smiley,
+                "nature": self.ess_qtableview_model_nature,
+                "food": self.ess_qtableview_model_food,
+                "activities": self.ess_qtableview_model_activities,
+                "travel": self.ess_qtableview_model_travel,
+                "objects": self.ess_qtableview_model_objects,
+                "symbols": self.ess_qtableview_model_symbols,
+                "flags": self.ess_qtableview_model_flags,
+            }
+
+            # Group by category once - optimization to avoid repeated categorization
+            category_data = {}
+            for code, info in emoji_data.items():
+                cat = (info.get("category") or "").strip().lower()
+                if cat:
+                    if cat not in category_data:
+                        category_data[cat] = {}
+                    category_data[cat][code] = info
+
+            # Set categorized data in each model efficiently
+            for cat, model in category_map.items():
+                model.emoji_data = category_data.get(cat, {})
+                model.emoji_list = sorted(model.emoji_data.items(), key=lambda x: x[0])
+                # Pre-calculate row count for efficiency (4 columns per row)
+                model._row_count = (len(model.emoji_list) + 3) // 4
+                model.layoutChanged.emit()
 
         def populate_models(self):
             """Populate all table models with categorized emoji data efficiently."""
@@ -295,28 +342,44 @@ class EmojiSymbolPicker(QWidget):
 
             # Add category header labels and table views to content layout
             content_layout.addWidget(self.ess_esp_label_smiley)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_smiley))
+            smiley_table = self.create_table_view(self.ess_qtableview_model_smiley)
+            self.all_table_views.append(smiley_table)
+            content_layout.addWidget(smiley_table)
 
             content_layout.addWidget(self.ess_esp_label_nature)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_nature))
+            nature_table = self.create_table_view(self.ess_qtableview_model_nature)
+            self.all_table_views.append(nature_table)
+            content_layout.addWidget(nature_table)
 
             content_layout.addWidget(self.ess_esp_label_food)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_food))
+            food_table = self.create_table_view(self.ess_qtableview_model_food)
+            self.all_table_views.append(food_table)
+            content_layout.addWidget(food_table)
 
             content_layout.addWidget(self.ess_esp_label_activities)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_activities))
+            activities_table = self.create_table_view(self.ess_qtableview_model_activities)
+            self.all_table_views.append(activities_table)
+            content_layout.addWidget(activities_table)
 
             content_layout.addWidget(self.ess_esp_label_travel)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_travel))
+            travel_table = self.create_table_view(self.ess_qtableview_model_travel)
+            self.all_table_views.append(travel_table)
+            content_layout.addWidget(travel_table)
 
             content_layout.addWidget(self.ess_esp_label_objects)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_objects))
+            objects_table = self.create_table_view(self.ess_qtableview_model_objects)
+            self.all_table_views.append(objects_table)
+            content_layout.addWidget(objects_table)
 
             content_layout.addWidget(self.ess_esp_label_symbols)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_symbols))
+            symbols_table = self.create_table_view(self.ess_qtableview_model_symbols)
+            self.all_table_views.append(symbols_table)
+            content_layout.addWidget(symbols_table)
 
             content_layout.addWidget(self.ess_esp_label_flags)
-            content_layout.addWidget(self.create_table_view(self.ess_qtableview_model_flags))
+            flags_table = self.create_table_view(self.ess_qtableview_model_flags)
+            self.all_table_views.append(flags_table)
+            content_layout.addWidget(flags_table)
 
             # Set content widget in scroll area
             scroll_area.setWidget(content_widget)
@@ -334,10 +397,14 @@ class EmojiSymbolPicker(QWidget):
             table_view = QTableView()
             table_view.setModel(model)
 
+            # Get theme colors for styling
+            theme = Theme()
+            colors = theme.get_colors()
+
             # Configure table view for emoji display
             table_view.setGridStyle(Qt.DotLine)
-            table_view.setAlternatingRowColors(True)
-            table_view.setSelectionMode(QTableView.SingleSelection)
+            table_view.setAlternatingRowColors(False)  # Disable alternating colors to use stylesheet
+            table_view.setSelectionMode(QTableView.SingleSelection)  # Allow only one selection at a time
             table_view.setSelectionBehavior(QTableView.SelectItems)
 
             # Hide headers
@@ -350,14 +417,57 @@ class EmojiSymbolPicker(QWidget):
             table_view.horizontalHeader().setDefaultSectionSize(EMOJI_CELL_WIDTH)
 
             # Set fixed table size to ensure all columns are visible using global variables
-            table_view.setFixedWidth(4 * EMOJI_CELL_WIDTH + 8)  # 4 columns * width + padding
-            table_view.setFixedHeight(model.rowCount() * EMOJI_CELL_HEIGHT + 8)  # rows * height + padding
+            table_view.setFixedWidth(4 * EMOJI_CELL_WIDTH + EMOJI_TABLE_PADDING)  # 4 columns * width + padding
+            table_view.setFixedHeight(model.rowCount() * EMOJI_CELL_HEIGHT + EMOJI_TABLE_PADDING)  # rows * height + padding
 
             # Disable editing
             table_view.setEditTriggers(QTableView.NoEditTriggers)
 
             # Disable horizontal scrolling since we want to fit all columns
             table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+            # Override mouse press event to implement exclusive selection behavior
+            original_mouse_press = table_view.mousePressEvent
+
+            def custom_mouse_press_event(event):
+                index = table_view.indexAt(event.pos())
+                if index.isValid():
+                    # Clear all selections across ALL table views first, then select the new cell
+                    self.clear_all_selections()
+                    table_view.selectionModel().select(index, table_view.selectionModel().Select)
+                    event.accept()
+                else:
+                    original_mouse_press(event)
+
+            table_view.mousePressEvent = custom_mouse_press_event
+
+            # Apply theme styling to the table view
+            table_style = f"""
+                QTableView {{
+                    background-color: {colors.get("table_background", "#FFFFFF")};
+                    border: 1px solid {colors.get("table_border", "#E0E0E0")};
+                    border-radius: 4px;
+                    gridline-color: {colors.get("table_gridline", "#F0F0F0")};
+                    color: {colors.get("table_text", "#000000")};
+                    selection-background-color: {colors.get("table_selection_background", "#007BFF")};
+                    selection-color: {colors.get("table_selection_text", "#FFFFFF")};
+                }}
+                QTableView::item {{
+                    padding: {EMOJI_CELL_PADDING}px;
+                    border-bottom: 1px solid {colors.get("table_gridline", "#F0F0F0")};
+                }}
+                QTableView::item:selected {{
+                    background-color: {colors.get("table_selection_background", "#007BFF")};
+                    color: {colors.get("table_selection_text", "#FFFFFF")};
+                }}
+                QTableView::item:hover {{
+                    background-color: {colors.get("table_hover_background", "#E8F4F8")};
+                }}
+                QTableView::item:alternate {{
+                    background-color: {colors.get("table_background", "#FFFFFF")};
+                }}
+            """
+            table_view.setStyleSheet(table_style)
 
             return table_view
 
