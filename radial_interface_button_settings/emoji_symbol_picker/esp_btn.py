@@ -24,8 +24,11 @@ class EspBtn(QPushButton):
             checked: Whether the button should be in checked state (default: False)
         """
         super().__init__(text, parent)
-        self.checked = checked
         self.original_font_size = self.FONT_SIZE  # Use class attribute for font size
+
+        # Set the button to be checkable
+        self.setCheckable(True)
+        self.setChecked(checked)
 
         # Set fixed size for all EspBtn instances using class attributes
         self.setFixedSize(self.BUTTON_WIDTH, self.BUTTON_HEIGHT)
@@ -34,16 +37,20 @@ class EspBtn(QPushButton):
         self.theme = Theme()
         self.colors = self.theme.get_colors()
 
-        # Connect clicked signal to toggle checked state
-        self.clicked.connect(self.toggle_checked)
+        # Connect toggled signal to automatically update styling
+        self.toggled.connect(self.apply_styling)
 
-        # Apply theme-aware styling
+        # Apply initial theme-aware styling
         self.apply_styling()
 
-    def apply_styling(self):
-        """Apply theme-based styling to the EspBtn."""
+    def apply_styling(self, checked=None):
+        """Apply theme-based styling to the EspBtn based on its checked state."""
+        # If checked is None, use the button's current checked state
+        if checked is None:
+            checked = self.isChecked()
+
         # Check if button is in checked state
-        if self.checked:
+        if checked:
             background_color = self.colors.get("checked_button", "#4CAF50")
             text_color = "#FFFFFF"  # White text for better contrast on green
         else:
@@ -143,10 +150,3 @@ class EspBtn(QPushButton):
                 f"font-size: {self.original_font_size}px"
             ))
         super().mouseReleaseEvent(event)
-
-    def toggle_checked(self):
-        """
-        Toggle the checked state of the button and update styling.
-        """
-        self.checked = not self.checked
-        self.apply_styling()
