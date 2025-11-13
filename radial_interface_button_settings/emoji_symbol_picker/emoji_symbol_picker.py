@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-                             QScrollArea, QTableView, QAbstractItemView)
+                             QScrollArea, QTableView, QAbstractItemView, QLineEdit)
 from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex
 from PyQt5.QtGui import QColor, QFont
 import emoji as emoji_lib  # type: ignore
@@ -88,11 +88,81 @@ class EmojiSymbolPicker(QWidget):
             self.colors = self.theme.get_colors()
             
             self.all_table_views = []
-            self.category_widgets = {} # Stores {'label': QLabel, 'model': QTableModel}
+            self.category_widgets = {} # Stores {'label': QLabel, 'model': QTableModel, 'table': QTableView}
+
+            # --- Search-specific components ---
+            self.search_model = EmojiTableModel()
+            self.search_results_label = EspLabel("----- Search Results -----", display_alignment="center", bordered=False)
+            self.search_table_view = self._create_table_view(self.search_model)
+            
+            # --- Container for categories ---
+            self.categories_container = QWidget()
+            self.categories_layout = QVBoxLayout(self.categories_container)
+            self.categories_layout.setSpacing(10)
+            self.categories_layout.setContentsMargins(0,0,0,0)
+
+            self._fully_populated = False
+            self._init_ui()  # Init UI first
+            self._apply_styling()
+
+        def showEvent(self, event):
+            """Override showEvent to populate models only when window is shown."""
+            super().showEvent(event)
+            self._populate_models_if_needed()
+
+        def _populate_models_if_needed(self):
+            """Populates models with emoji data only if they haven't been already."""
+            if self._fully_populated:
+                return
 
             self._populate_models()
-            self._init_ui()
-            self._apply_styling()
+            self.show_categories() # Show all categories by default after populating.
+            self._fully_populated = True
+
+        def filter_by_search(self, search_text: str):
+            """Filters the view to show only emojis matching the search text."""
+            if not search_text:
+                # If search is cleared, show the categories again
+                self.show_categories()
+                return
+
+            all_emojis = PasteWheelConfig.get_all_emojis()
+            
+            # Filter based on description (case-insensitive)
+            filtered_data = {
+                code: info for code, info in all_emojis.items()
+                if search_text.lower() in info.get("description", "").lower()
+            }
+            
+            self.search_model.set_emoji_data(filtered_data)
+            
+            # Hide categories and show search results
+            self.categories_container.hide()
+            self.search_results_label.show()
+            self.search_table_view.show()
+            
+            # Adjust height of search table
+            new_height = self.search_model.rowCount() * EMOJI_CELL_HEIGHT + EMOJI_TABLE_PADDING
+            self.search_table_view.setFixedHeight(new_height)
+
+        def show_categories(self, category_id_to_show: str = None):
+            """Shows all or a specific category, and hides the search results."""
+            # Hide search results first
+            self.search_results_label.hide()
+            self.search_table_view.hide()
+            
+            # Show the category container
+            self.categories_container.show()
+            
+            # Update visibility of individual categories within the container
+            self.update_category_visibility(category_id_to_show)
+
+        def update_category_visibility(self, visible_category_id: str = None):
+            """Shows one or all categories within the categories container."""
+            for cat_id, widgets in self.category_widgets.items():
+                is_visible = (visible_category_id is None) or (cat_id == visible_category_id)
+                widgets['label'].setVisible(is_visible)
+                widgets['table'].setVisible(is_visible)
 
         def _init_ui(self):
             scroll_area = QScrollArea()
@@ -102,19 +172,18 @@ class EmojiSymbolPicker(QWidget):
 
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
-            content_layout.setSpacing(10) # Add some space between categories
+            content_layout.setSpacing(10)
 
-            # Dynamically create and add category sections
-            for cat_id, cat_name in self.CATEGORIES.items():
-                widgets = self.category_widgets[cat_id]
-                header_label = widgets['label']
-                table_model = widgets['model']
-                
-                content_layout.addWidget(header_label)
-                
-                table_view = self._create_table_view(table_model)
-                self.all_table_views.append(table_view)
-                content_layout.addWidget(table_view)
+            # Add the category container to the layout
+            content_layout.addWidget(self.categories_container)
+            
+            # This is now handled in _populate_models, which is called later.
+
+            # Add search results components to the main layout, but hide them initially
+            content_layout.addWidget(self.search_results_label)
+            content_layout.addWidget(self.search_table_view)
+            self.search_results_label.hide()
+            self.search_table_view.hide()
 
             scroll_area.setWidget(content_widget)
 
@@ -123,25 +192,35 @@ class EmojiSymbolPicker(QWidget):
             main_layout.addWidget(scroll_area)
 
         def _populate_models(self):
-            # This method now also creates the labels and models
+            """Populates the models and creates the necessary widgets."""
             all_emojis = PasteWheelConfig.get_all_emojis()
             if not isinstance(all_emojis, dict):
                 all_emojis = {}
 
-            # Group emojis by category once
             categorized_data = {cat_id: {} for cat_id in self.CATEGORIES}
             for code, info in all_emojis.items():
                 category = (info.get("category") or "").strip().lower()
                 if category in categorized_data:
                     categorized_data[category][code] = info
-            
-            # Create models and labels for each category
+
             for cat_id, cat_name in self.CATEGORIES.items():
                 header_label = EspLabel(f"----- {cat_name} -----", display_alignment="center", bordered=False)
                 model = EmojiTableModel()
                 model.set_emoji_data(categorized_data.get(cat_id, {}))
                 
-                self.category_widgets[cat_id] = {'label': header_label, 'model': model}
+                table_view = self._create_table_view(model)
+                self.all_table_views.append(table_view)
+
+                # Store all widgets for this category
+                self.category_widgets[cat_id] = {'label': header_label, 'model': model, 'table': table_view}
+
+                # Add them to the layout
+                self.categories_layout.addWidget(header_label)
+                self.categories_layout.addWidget(table_view)
+
+                # Initially hide them
+                header_label.hide()
+                table_view.hide()
 
         def _create_table_view(self, model: EmojiTableModel) -> QTableView:
             table_view = QTableView()
@@ -249,11 +328,14 @@ class EmojiSymbolPicker(QWidget):
         """Creates the top search bar layout."""
         search_layout = QHBoxLayout()
         self.search_prompt_label = EspLabel("Search:", margin=0, padding=0, bordered=False)
-        self.search_input_display = EspLabel("", label_type="input")
+        
+        # Use a standard QLineEdit for easier signal handling
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Enter keyword...")
+        self.search_input.textChanged.connect(self._on_search_text_changed)
         
         search_layout.addWidget(self.search_prompt_label)
-        search_layout.addWidget(self.search_input_display)
-        search_layout.addStretch()
+        search_layout.addWidget(self.search_input)
         return search_layout
 
     def _create_categories_section(self):
@@ -274,20 +356,22 @@ class EmojiSymbolPicker(QWidget):
         # --- Button Definitions ---
         self.category_buttons = {
             "smiley": EspBtn(text="Smiley"), "nature": EspBtn(text="Nature"),
-            "food": EspBtn(text="Food/Drink"), "activity": EspBtn(text="Activities"),
+            "food": EspBtn(text="Food/Drink"), "activities": EspBtn(text="Activities"),
             "travel": EspBtn(text="Travel"), "objects": EspBtn(text="Objects"),
             "symbols": EspBtn(text="Symbols"), "flags": EspBtn(text="Flags")
         }
         
         # --- Signal Connections ---
         for cat_id, button in self.category_buttons.items():
-            button.clicked.connect(lambda checked, b=button: self._on_category_button_clicked(b))
+            # Pass both the button and its cat_id to the handler
+            button.clicked.connect(lambda checked, b=button, cid=cat_id: self._on_category_button_clicked(b, cid))
+
 
         # --- Layout ---
         layout.addWidget(self.category_buttons["smiley"], 1, 0)
         layout.addWidget(self.category_buttons["nature"], 1, 1)
         layout.addWidget(self.category_buttons["food"], 1, 2)
-        layout.addWidget(self.category_buttons["activity"], 1, 3)
+        layout.addWidget(self.category_buttons["activities"], 1, 3)
         layout.addWidget(self.category_buttons["travel"], 2, 0)
         layout.addWidget(self.category_buttons["objects"], 2, 1)
         layout.addWidget(self.category_buttons["symbols"], 2, 2)
@@ -295,18 +379,33 @@ class EmojiSymbolPicker(QWidget):
 
         return categories_container
 
-    def _on_category_button_clicked(self, clicked_button: EspBtn):
-        """Ensures only one category button is checked at a time."""
-        # When a button is clicked, iterate through all buttons
+    def _on_category_button_clicked(self, clicked_button: EspBtn, category_id: str):
+        """Handles category button clicks for single selection and filtering."""
+        
+        # Clear search input when a category is clicked
+        if self.search_input.text():
+            self.search_input.clear()
+
+        is_being_unchecked = not clicked_button.isChecked()
+
         for button in self.category_buttons.values():
-            # Check if the current button in the loop is the one that was clicked
-            is_the_clicked_button = (button is clicked_button)
-            
-            # Set its checked state. If it's the clicked button, this will be True.
-            # If it's not the clicked button, this will be False.
-            # This ensures that even the clicked button's state is explicitly set,
-            # and all others are explicitly unset.
-            button.setChecked(is_the_clicked_button)
+            if button is not clicked_button:
+                button.setChecked(False)
+        
+        if is_being_unchecked:
+            self.emoji_selection_area.show_categories() # Show all
+        else:
+            self.emoji_selection_area.show_categories(category_id) # Show specific
+
+    def _on_search_text_changed(self, text: str):
+        """Handles search input changes to filter emojis."""
+        # Uncheck all category buttons when a search is performed
+        if text:
+            for button in self.category_buttons.values():
+                if button.isChecked():
+                    button.setChecked(False)
+        
+        self.emoji_selection_area.filter_by_search(text)
 
     def _apply_styling(self):
         """Apply theme-based styling to the main window."""

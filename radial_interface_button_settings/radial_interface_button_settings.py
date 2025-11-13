@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout
 from PyQt5.QtCore import Qt
 from theme import Theme
 from radial_interface_button_settings.ribs_button import RibsButton
-from radial_interface_button_settings.ribs_label import RibsLabel
+from radial_interface_button_settings.ribs_label import RibsLabel  # This was the missing import
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
 from radial_interface_button_settings.ribs_radio_btn import RibsRadioBtn
 from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboardEditor
@@ -293,8 +293,8 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_radio_select_clipboard.toggled.connect(self._on_clipboard_radio_toggled)
         self.rib_radio_select_expand.toggled.connect(self._on_expand_radio_toggled)
 
-        # Instantiate the emoji/symbol picker
-        self.emoji_symbol_picker = EmojiSymbolPicker(parent=self)
+        # Defer instantiation of the emoji picker until it's needed
+        self.emoji_symbol_picker = None
 
         # Connect symbol button to open emoji picker
         self.rib_btn_title_symbol_btn.clicked.connect(self._on_symbol_btn_clicked)
@@ -401,7 +401,12 @@ class RadialInterfaceButtonSettings(QWidget):
     def _on_symbol_btn_clicked(self):
         """
         Handle rib_btn_title_symbol_btn click to open emoji_symbol_picker.
+        Instantiates the picker on first click (lazy instantiation).
         """
+        # Lazy instantiation: create the picker only when it's first needed
+        if self.emoji_symbol_picker is None:
+            self.emoji_symbol_picker = EmojiSymbolPicker(parent=self)
+        
         self.emoji_symbol_picker.show()
         self.emoji_symbol_picker.raise_()
         self.emoji_symbol_picker.activateWindow()
