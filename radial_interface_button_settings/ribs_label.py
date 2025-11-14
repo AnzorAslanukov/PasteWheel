@@ -17,6 +17,8 @@ class RibsLabel(QWidget):
         input_unclickable_tooltip="",
         max_length=256,
         input_alignment="left",
+        display_alignment="left",
+        font_size=None,
         size=None
     ):
         """
@@ -34,6 +36,8 @@ class RibsLabel(QWidget):
             input_unclickable_tooltip: Tooltip text shown on hover for input-type labels when clickable=False
             max_length: Maximum number of characters allowed in input-type labels (default: 256)
             input_alignment: Text alignment for input-type labels ("left", "center", "right"; default: "left")
+            display_alignment: Text alignment for display-type labels ("left", "center", "right"; default: "left")
+            font_size: Font size in pixels for the label, or None to use system default (default: None)
             size: List [width, height] to set fixed size, or None for content-based sizing (default: None)
         """
         super().__init__(parent)
@@ -47,6 +51,8 @@ class RibsLabel(QWidget):
         self.display_tooltip = display_tooltip
         self.input_clickable_tooltip = input_clickable_tooltip
         self.input_unclickable_tooltip = input_unclickable_tooltip
+        self.display_alignment = display_alignment
+        self.font_size = font_size
 
         # Get theme colors first (needed for text processing)
         theme = Theme()
@@ -62,6 +68,13 @@ class RibsLabel(QWidget):
             # Process text to style "ⓘ" character
             styled_text = self._process_text_for_styling(text)
             self.widget = QLabel(styled_text, self)
+            # Set display alignment for display-type labels
+            if display_alignment.lower() == "left":
+                self.widget.setAlignment(Qt.AlignLeft)
+            elif display_alignment.lower() == "center":
+                self.widget.setAlignment(Qt.AlignCenter)
+            elif display_alignment.lower() == "right":
+                self.widget.setAlignment(Qt.AlignRight)
 
         # Set input alignment for input-type labels
         if self.is_input_type and isinstance(self.widget, QLineEdit):
@@ -98,6 +111,9 @@ class RibsLabel(QWidget):
         background_color = self.colors.get("background", "#FFFFFF")
         text_color = self.colors.get("text", "#000000")
 
+        # Build font-size style if specified
+        font_size_style = f"font-size: {self.font_size}px;" if self.font_size is not None else ""
+
         # Apply stylesheet - remove color changes for unclickable state
         self.setStyleSheet(f"""
             QLabel {{
@@ -105,6 +121,7 @@ class RibsLabel(QWidget):
                 color: {text_color};
                 padding: {self.padding}px;
                 margin: {self.margin}px;
+                {font_size_style}
             }}
             QLineEdit {{
                 background-color: {background_color};
@@ -112,6 +129,7 @@ class RibsLabel(QWidget):
                 border: 1px solid {self.colors.get("border", "#CCCCCC")};
                 padding: {self.padding}px;
                 margin: {self.margin}px;
+                {font_size_style}
             }}
         """)
 

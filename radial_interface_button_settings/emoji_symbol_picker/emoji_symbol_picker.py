@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QScrollArea, QTableView, QAbstractItemView, QLineEdit)
-from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex
+from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex, pyqtSignal
 from PyQt5.QtGui import QColor, QFont
 import emoji as emoji_lib  # type: ignore
 
@@ -82,8 +82,9 @@ class EmojiSymbolPicker(QWidget):
             "symbols": "Symbols", "flags": "Flags"
         }
 
-        def __init__(self, parent=None):
+        def __init__(self, picker_instance, parent=None):
             super().__init__(parent)
+            self.picker_instance = picker_instance  # Store reference to EmojiSymbolPicker
             self.theme = Theme()
             self.colors = self.theme.get_colors()
             
@@ -244,15 +245,24 @@ class EmojiSymbolPicker(QWidget):
             table_view.setFixedSize(total_width, total_height)
             
             # --- Event Handling for Global Selection ---
-            original_mouse_press = table_view.mousePressEvent
             def custom_mouse_press_event(event):
                 index = table_view.indexAt(event.pos())
                 if index.isValid():
                     self._clear_all_selections()
                     table_view.selectionModel().select(index, table_view.selectionModel().Select)
+
+                    # Emit signal with selected emoji
+                    emoji_index = (index.row() * EMOJI_COLUMN_COUNT) + index.column()
+                    if emoji_index < len(model.emoji_list):
+                        code, info = model.emoji_list[emoji_index]
+                        emoji_symbol = emoji_lib.emojize(code, language='alias')
+                        # Emit the signal from the picker instance
+                        self.picker_instance.emoji_selected.emit(emoji_symbol)
+
                     event.accept()
                 else:
-                    original_mouse_press(event)
+                    # Call original method if not handled
+                    super(QTableView, table_view).mousePressEvent(event)
             table_view.mousePressEvent = custom_mouse_press_event
 
             # --- Styling ---
@@ -289,6 +299,9 @@ class EmojiSymbolPicker(QWidget):
             """)
 
     # --- EmojiSymbolPicker Methods ---
+    # Define signal for emoji selection
+    emoji_selected = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent, Qt.Window)
         self.theme = Theme()
@@ -321,7 +334,7 @@ class EmojiSymbolPicker(QWidget):
         main_layout.addWidget(categories_widget)
 
         # 3. Emoji Selection Scroll Area
-        self.emoji_selection_area = self._EmojiSymbolSelection()
+        self.emoji_selection_area = self._EmojiSymbolSelection(picker_instance=self)  
         main_layout.addWidget(self.emoji_selection_area)
 
     def _create_search_section(self):

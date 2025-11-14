@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from theme import Theme
 from radial_interface_button_settings.ribs_button import RibsButton
-from radial_interface_button_settings.ribs_label import RibsLabel  # This was the missing import
+from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
 from radial_interface_button_settings.ribs_radio_btn import RibsRadioBtn
 from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboardEditor
@@ -158,7 +158,7 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Create button label section underneath clipboard_section
         self.btn_label_section = QWidget(self)
-        self.btn_label_section.setFixedHeight(160)  # Increased height for grid layout and new tooltip widgets
+        self.btn_label_section.setFixedHeight(200)  # Increased height for grid layout, tooltip widgets, and selected emoji display
         section_bg = self.colors.get("section_background", "#F0F0F0")
         self.btn_label_section.setStyleSheet(f"""
             QWidget {{
@@ -230,6 +230,18 @@ class RadialInterfaceButtonSettings(QWidget):
         tooltip_row_layout.addStretch()  # Space between checkbox and button
         tooltip_row_layout.addWidget(self.rib_tooltip_config_btn) # Right
         btn_label_section_layout.addLayout(tooltip_row_layout)
+
+        # Add chosen emoji display row
+        chosen_emoji_row_layout = QHBoxLayout()
+        self.chosen_emoji_ribs_disp_label = RibsLabel("Selected Emoji/Symbol:", "display", self.btn_label_section)
+        self.chosen_emoji = RibsLabel("", "display", self.btn_label_section,
+                                      padding=0,
+                                      display_alignment="center",
+                                      font_size=30)  # Empty placeholder for now, will be updated later
+
+        chosen_emoji_row_layout.addWidget(self.chosen_emoji_ribs_disp_label)  # Left
+        chosen_emoji_row_layout.addWidget(self.chosen_emoji)  # Right, no stretch to keep them together
+        btn_label_section_layout.addLayout(chosen_emoji_row_layout)
 
         # Connect tooltip checkbox to control config button clickability
         self.rib_tooltip_checkbox.stateChanged.connect(self._on_tooltip_checkbox_changed)
@@ -336,12 +348,15 @@ class RadialInterfaceButtonSettings(QWidget):
         - rib_btn_title_char_input_label remains clickable (True by default)
         - rib_btn_title_symbol_btn becomes non-clickable (False)
         - rib_btn_title_input_label becomes clickable (True)
+        - chosen_emoji label is cleared (set to empty string "")
         """
         if checked:
             # Characters radio is checked - character input should be enabled
             # Symbol button should be disabled
             self.rib_btn_title_symbol_btn.set_clickable(False)
             self.rib_btn_title_char_input_label.set_clickable(True)
+            # Clear the chosen emoji when char radio is checked
+            self.chosen_emoji.widget.setText("")
 
     def _on_symbol_radio_toggled(self, checked):
         """
@@ -398,6 +413,13 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_2_clipboard_editor.raise_()
         self.seq_2_clipboard_editor.activateWindow()
 
+    def _on_emoji_selected(self, emoji_symbol: str):
+        """
+        Handle emoji selection from the emoji picker.
+        Updates the chosen_emoji label with the selected emoji/symbol.
+        """
+        self.chosen_emoji.widget.setText(emoji_symbol)
+
     def _on_symbol_btn_clicked(self):
         """
         Handle rib_btn_title_symbol_btn click to open emoji_symbol_picker.
@@ -406,7 +428,9 @@ class RadialInterfaceButtonSettings(QWidget):
         # Lazy instantiation: create the picker only when it's first needed
         if self.emoji_symbol_picker is None:
             self.emoji_symbol_picker = EmojiSymbolPicker(parent=self)
-        
+            # Connect the signal to the handler
+            self.emoji_symbol_picker.emoji_selected.connect(self._on_emoji_selected)
+
         self.emoji_symbol_picker.show()
         self.emoji_symbol_picker.raise_()
         self.emoji_symbol_picker.activateWindow()
