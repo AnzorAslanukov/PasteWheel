@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QPlainTextEdit, QVBoxLayout, QTextEdit
-from PyQt5.QtCore import Qt, QRegExp
+from PyQt5.QtCore import Qt, QRegExp, pyqtSignal
 from PyQt5.QtGui import QTextCharFormat, QSyntaxHighlighter, QColor
 from theme import Theme
 from radial_interface_button_settings.ribs_button import RibsButton
@@ -8,6 +8,9 @@ import enchant
 
 
 class RibsClipboardEditor(QWidget):
+    # Signal emitted when save button is clicked, with the text data
+    data_saved = pyqtSignal(str)
+
     def __init__(self, parent=None, window_title="Clipboard Editor"):
         """
         Initialize the RibsClipboardEditor window.
@@ -49,9 +52,13 @@ class RibsClipboardEditor(QWidget):
 
         # Connect text changed signal to update counter
         self.ribs_clipboard_input.textChanged.connect(self._update_character_counter)
+        # Connect to update save button clickability
+        self.ribs_clipboard_input.textChanged.connect(self._on_text_changed)
 
         # Instantiate save button at the bottom and center it
-        self.ribs_clipboard_editor_save_btn = RibsButton("Save", self)
+        self.ribs_clipboard_editor_save_btn = RibsButton("Save", self, clickable=False)
+        # Connect save button to emit signal with data
+        self.ribs_clipboard_editor_save_btn.clicked.connect(self._on_save_clicked)
 
         # Add controlled spacing before save button
         self.spacing_pixels = 10  # Variable to adjust spacing in pixels (0 = minimal spacing)
@@ -164,3 +171,21 @@ class RibsClipboardEditor(QWidget):
         """
         count = self.ribs_clipboard_input.get_character_count()
         self.clipboard_editor_counter_label.widget.setText(f"Character count: {count}")
+
+    def _on_text_changed(self):
+        """
+        Update the save button clickability based on whether text is present.
+        Called whenever text changes in ribs_clipboard_input.
+        """
+        text = self.ribs_clipboard_input.toPlainText().strip()
+        self.ribs_clipboard_editor_save_btn.set_clickable(bool(text))
+
+    def _on_save_clicked(self):
+        """
+        Handle save button click to emit the data_saved signal with current text.
+        Called when ribs_clipboard_editor_save_btn is clicked.
+        """
+        text = self.ribs_clipboard_input.toPlainText().strip()
+        self.data_saved.emit(text)
+        # Close the editor window after saving
+        self.close()

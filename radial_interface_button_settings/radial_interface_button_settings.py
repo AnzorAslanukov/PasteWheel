@@ -1,5 +1,8 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtSvg import QSvgRenderer
+from PyQt5.QtGui import QPixmap, QPainter
+from PyQt5.QtCore import QSize, QRectF
 from theme import Theme
 from radial_interface_button_settings.ribs_button import RibsButton
 from radial_interface_button_settings.ribs_label import RibsLabel
@@ -120,6 +123,32 @@ class RadialInterfaceButtonSettings(QWidget):
         self.add_seq_2_clipboard = RibsLabel("Add sequential clipboard data:", "display", self.clipboard_section)
         self.edit_seq_2_clipboard = RibsButton("Edit clipboard", clickable=False)
 
+        # Create updated_icon QLabel with SVG (for seq1)
+        self.updated_icon_seq1 = QLabel()
+        self.updated_icon_seq1.setFixedHeight(30)  # Match height of edit buttons
+        renderer = QSvgRenderer("assets/updated.svg")
+        size = QSize(30, 30)
+        pixmap = QPixmap(size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter, QRectF(0, 0, size.width(), size.height()))
+        painter.end()
+        self.updated_icon_seq1.setPixmap(pixmap)
+
+        # Create updated_icon for seq2
+        self.updated_icon_seq2 = QLabel()
+        self.updated_icon_seq2.setFixedHeight(30)
+        pixmap2 = QPixmap(size)
+        pixmap2.fill(Qt.transparent)
+        painter2 = QPainter(pixmap2)
+        renderer.render(painter2, QRectF(0, 0, size.width(), size.height()))
+        painter2.end()
+        self.updated_icon_seq2.setPixmap(pixmap2)
+
+        # Initially hide the icons since no data is saved yet
+        self.updated_icon_seq1.hide()
+        self.updated_icon_seq2.hide()
+
         # Layout for the clipboard section
         section_layout = QVBoxLayout(self.clipboard_section)
         section_layout.addWidget(self.clipboard_label, alignment=Qt.AlignCenter)
@@ -127,7 +156,8 @@ class RadialInterfaceButtonSettings(QWidget):
         # Horizontal layout for the label and button (first row)
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.add_seq_1_clipboard)
-        controls_layout.addStretch()  # Push button to the right
+        controls_layout.addStretch()  # Push to the right
+        controls_layout.addWidget(self.updated_icon_seq1)
         controls_layout.addWidget(self.edit_seq_1_clipboard)
         section_layout.addLayout(controls_layout)
 
@@ -141,7 +171,8 @@ class RadialInterfaceButtonSettings(QWidget):
         # Horizontal layout for sequential clipboard widgets (third row)
         sequential_layout = QHBoxLayout()
         sequential_layout.addWidget(self.add_seq_2_clipboard)
-        sequential_layout.addStretch()  # Push button to the right
+        sequential_layout.addStretch()  # Push to the right
+        sequential_layout.addWidget(self.updated_icon_seq2)
         sequential_layout.addWidget(self.edit_seq_2_clipboard)
         section_layout.addLayout(sequential_layout)
 
@@ -152,13 +183,22 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_1_clipboard_editor = RibsClipboardEditor(parent=self)
         self.seq_2_clipboard_editor = RibsClipboardEditor(parent=self, window_title="Sequence 2 Clipboard Editor")
 
+        # Create instance variables for temporary data storage from clipboard editors
+        self.seq_1_data = None
+        self.seq_2_data = None
+
+        # Connect clipboard editors data_saved signals to store data
+        self.seq_1_clipboard_editor.data_saved.connect(self._on_seq_1_data_saved)
+        self.seq_2_clipboard_editor.data_saved.connect(self._on_seq_2_data_saved)
+
         # Connect button click signals to open clipboard editors
         self.edit_seq_1_clipboard.clicked.connect(self._on_edit_seq_1_clipboard_clicked)
         self.edit_seq_2_clipboard.clicked.connect(self._on_edit_seq_2_clipboard_clicked)
 
         # Create button label section underneath clipboard_section
         self.btn_label_section = QWidget(self)
-        self.btn_label_section.setFixedHeight(200)  # Increased height for grid layout, tooltip widgets, and selected emoji display
+        # Start with smaller height since emoji widgets are initially hidden
+        self.btn_label_section.setFixedHeight(150)
         section_bg = self.colors.get("section_background", "#F0F0F0")
         self.btn_label_section.setStyleSheet(f"""
             QWidget {{
@@ -232,16 +272,16 @@ class RadialInterfaceButtonSettings(QWidget):
         btn_label_section_layout.addLayout(tooltip_row_layout)
 
         # Add chosen emoji display row
-        chosen_emoji_row_layout = QHBoxLayout()
+        self.chosen_emoji_row_layout = QHBoxLayout()
         self.chosen_emoji_ribs_disp_label = RibsLabel("Selected Emoji/Symbol:", "display", self.btn_label_section)
         self.chosen_emoji = RibsLabel("", "display", self.btn_label_section,
                                       padding=0,
                                       display_alignment="center",
                                       font_size=30)  # Empty placeholder for now, will be updated later
 
-        chosen_emoji_row_layout.addWidget(self.chosen_emoji_ribs_disp_label)  # Left
-        chosen_emoji_row_layout.addWidget(self.chosen_emoji)  # Right, no stretch to keep them together
-        btn_label_section_layout.addLayout(chosen_emoji_row_layout)
+        self.chosen_emoji_row_layout.addWidget(self.chosen_emoji_ribs_disp_label)  # Left
+        self.chosen_emoji_row_layout.addWidget(self.chosen_emoji)  # Right, no stretch to keep them together
+        btn_label_section_layout.addLayout(self.chosen_emoji_row_layout)
 
         # Connect tooltip checkbox to control config button clickability
         self.rib_tooltip_checkbox.stateChanged.connect(self._on_tooltip_checkbox_changed)
@@ -249,6 +289,10 @@ class RadialInterfaceButtonSettings(QWidget):
         # Connect radio buttons to control widget states
         self.rib_btn_title_char_radio_btn.toggled.connect(self._on_char_radio_toggled)
         self.rib_btn_title_symbol_radio_btn.toggled.connect(self._on_symbol_radio_toggled)
+
+        # Initialize visibility: hide chosen emoji widgets since char radio is checked by default
+        self.chosen_emoji.hide()
+        self.chosen_emoji_ribs_disp_label.hide()
 
         # Connect button type radio buttons for mutual exclusivity
         # Note: setChecked(True) and signal connections must happen AFTER widget instantiation
@@ -296,6 +340,8 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Create save button at the bottom
         self.save_button = RibsButton("Save button data", self)
+        # Connect save button to clear data
+        self.save_button.clicked.connect(self._on_save_button_clicked)
         # To center the button, we can add stretch above it and center it
         layout.addStretch()  # This will push the button to the bottom
         layout.addWidget(self.save_button, alignment=Qt.AlignCenter)  # Center the button
@@ -349,6 +395,8 @@ class RadialInterfaceButtonSettings(QWidget):
         - rib_btn_title_symbol_btn becomes non-clickable (False)
         - rib_btn_title_input_label becomes clickable (True)
         - chosen_emoji label is cleared (set to empty string "")
+        - emoji_symbol_picker selection is cleared (if instantiated)
+        - chosen_emoji and chosen_emoji_ribs_disp_label become invisible
         """
         if checked:
             # Characters radio is checked - character input should be enabled
@@ -357,6 +405,14 @@ class RadialInterfaceButtonSettings(QWidget):
             self.rib_btn_title_char_input_label.set_clickable(True)
             # Clear the chosen emoji when char radio is checked
             self.chosen_emoji.widget.setText("")
+            # Clear emoji picker selection if it has been instantiated
+            if self.emoji_symbol_picker is not None:
+                self.emoji_symbol_picker.clear_selection()
+            # Hide chosen emoji display widgets
+            self.chosen_emoji.hide()
+            self.chosen_emoji_ribs_disp_label.hide()
+            # Reduce section height when emoji widgets are hidden
+            self.btn_label_section.setFixedHeight(150)
 
     def _on_symbol_radio_toggled(self, checked):
         """
@@ -366,12 +422,18 @@ class RadialInterfaceButtonSettings(QWidget):
         - rib_btn_title_char_input_label becomes non-clickable (False)
         - rib_btn_title_char_radio_btn becomes unchecked (False)
         - rib_btn_title_symbol_btn becomes clickable (True)
+        - chosen_emoji and chosen_emoji_ribs_disp_label become visible
         """
         if checked:
             # Symbols radio is checked - make character input non-clickable
             # and uncheck the character radio button (but this will trigger _on_char_radio_toggled)
             self.rib_btn_title_char_input_label.set_clickable(False)
             self.rib_btn_title_symbol_btn.set_clickable(True)
+            # Show chosen emoji display widgets
+            self.chosen_emoji.show()
+            self.chosen_emoji_ribs_disp_label.show()
+            # Increase section height when emoji widgets are shown
+            self.btn_label_section.setFixedHeight(200)
 
     def _on_tooltip_checkbox_changed(self, state):
         """
@@ -434,3 +496,44 @@ class RadialInterfaceButtonSettings(QWidget):
         self.emoji_symbol_picker.show()
         self.emoji_symbol_picker.raise_()
         self.emoji_symbol_picker.activateWindow()
+
+    def _on_seq_1_data_saved(self, data):
+        """
+        Store data temporarily in seq_1_data when seq_1_clipboard_editor saves.
+        Show/hide updated_icon_seq1 based on data presence.
+        """
+        self.seq_1_data = data
+        if data:
+            self.updated_icon_seq1.show()
+        else:
+            self.updated_icon_seq1.hide()
+
+    def _on_seq_2_data_saved(self, data):
+        """
+        Store data temporarily in seq_2_data when seq_2_clipboard_editor saves.
+        Show/hide updated_icon_seq2 based on data presence.
+        """
+        self.seq_2_data = data
+        if data:
+            self.updated_icon_seq2.show()
+        else:
+            self.updated_icon_seq2.hide()
+
+    def _on_save_button_clicked(self):
+        """
+        Handle save button click to clear temporary data and hide icons.
+        """
+        self.seq_1_data = None
+        self.seq_2_data = None
+        self.updated_icon_seq1.hide()
+        self.updated_icon_seq2.hide()
+
+    def closeEvent(self, event):
+        """
+        Clear temporary data when the window is closed and hide icons.
+        """
+        self.seq_1_data = None
+        self.seq_2_data = None
+        self.updated_icon_seq1.hide()
+        self.updated_icon_seq2.hide()
+        super().closeEvent(event)

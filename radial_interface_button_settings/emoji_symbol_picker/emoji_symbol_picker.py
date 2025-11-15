@@ -420,6 +420,11 @@ class EmojiSymbolPicker(QWidget):
         
         self.emoji_selection_area.filter_by_search(text)
 
+    def clear_selection(self):
+        """Clear the emoji selection in all table views."""
+        if hasattr(self, 'emoji_selection_area'):
+            self.emoji_selection_area._clear_all_selections()
+
     def _apply_styling(self):
         """Apply theme-based styling to the main window."""
         self.setStyleSheet(f"""
