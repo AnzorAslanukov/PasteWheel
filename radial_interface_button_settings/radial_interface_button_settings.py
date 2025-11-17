@@ -9,6 +9,7 @@ from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
 from radial_interface_button_settings.ribs_radio_btn import RibsRadioBtn
 from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboardEditor
+from radial_interface_button_settings.ribs_tooltip_editor import RibsTooltipEditor
 from radial_interface_button_settings.emoji_symbol_picker.emoji_symbol_picker import EmojiSymbolPicker
 
 
@@ -145,9 +146,20 @@ class RadialInterfaceButtonSettings(QWidget):
         painter2.end()
         self.updated_icon_seq2.setPixmap(pixmap2)
 
+        # Create updated_icon for tooltip
+        self.updated_icon_tooltip = QLabel()
+        self.updated_icon_tooltip.setFixedHeight(30)
+        pixmap3 = QPixmap(size)
+        pixmap3.fill(Qt.transparent)
+        painter3 = QPainter(pixmap3)
+        renderer.render(painter3, QRectF(0, 0, size.width(), size.height()))
+        painter3.end()
+        self.updated_icon_tooltip.setPixmap(pixmap3)
+
         # Initially hide the icons since no data is saved yet
         self.updated_icon_seq1.hide()
         self.updated_icon_seq2.hide()
+        self.updated_icon_tooltip.hide()
 
         # Layout for the clipboard section
         section_layout = QVBoxLayout(self.clipboard_section)
@@ -183,9 +195,10 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_1_clipboard_editor = RibsClipboardEditor(parent=self)
         self.seq_2_clipboard_editor = RibsClipboardEditor(parent=self, window_title="Sequence 2 Clipboard Editor")
 
-        # Create instance variables for temporary data storage from clipboard editors
+        # Create instance variables for temporary data storage from clipboard editors and tooltip editor
         self.seq_1_data = None
         self.seq_2_data = None
+        self.tooltip_data = None
 
         # Connect clipboard editors data_saved signals to store data
         self.seq_1_clipboard_editor.data_saved.connect(self._on_seq_1_data_saved)
@@ -267,7 +280,7 @@ class RadialInterfaceButtonSettings(QWidget):
         tooltip_row_layout.addWidget(self.rib_tooltip_disp_label)  # Left
         tooltip_row_layout.addStretch()  # Space between label and checkbox
         tooltip_row_layout.addWidget(self.rib_tooltip_checkbox)   # Center
-        tooltip_row_layout.addStretch()  # Space between checkbox and button
+        tooltip_row_layout.addWidget(self.updated_icon_tooltip)   # Between checkbox and button
         tooltip_row_layout.addWidget(self.rib_tooltip_config_btn) # Right
         btn_label_section_layout.addLayout(tooltip_row_layout)
 
@@ -285,6 +298,9 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Connect tooltip checkbox to control config button clickability
         self.rib_tooltip_checkbox.stateChanged.connect(self._on_tooltip_checkbox_changed)
+
+        # Connect tooltip config button to open tooltip editor
+        self.rib_tooltip_config_btn.clicked.connect(self._on_tooltip_config_btn_clicked)
 
         # Connect radio buttons to control widget states
         self.rib_btn_title_char_radio_btn.toggled.connect(self._on_char_radio_toggled)
@@ -353,6 +369,11 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Defer instantiation of the emoji picker until it's needed
         self.emoji_symbol_picker = None
+
+        # Instantiate the tooltip editor
+        self.rib_tooltip_editor = RibsTooltipEditor(self)
+        # Connect tooltip editor save_data_signal to store data
+        self.rib_tooltip_editor.save_data_signal.connect(self._on_tooltip_saved)
 
         # Connect symbol button to open emoji picker
         self.rib_btn_title_symbol_btn.clicked.connect(self._on_symbol_btn_clicked)
@@ -438,26 +459,40 @@ class RadialInterfaceButtonSettings(QWidget):
     def _on_tooltip_checkbox_changed(self, state):
         """
         Handle rib_tooltip_checkbox state changes to control rib_tooltip_config_btn clickability.
+        Clear tooltip_data and hide updated_icon_tooltip when checkbox is unchecked.
         """
         # state ==  2 means checked (Qt.CheckState.Checked), state == 0 means unchecked
         is_checked = state == 2  # 2 is Qt.CheckState.Checked value
         self.rib_tooltip_config_btn.set_clickable(is_checked)
+        if not is_checked:
+            self.tooltip_data = None
+            self.updated_icon_tooltip.hide()
 
     def _on_clipboard_radio_toggled(self, checked):
         """
         Handle rib_radio_select_clipboard toggles to ensure mutual exclusivity with expand radio.
+        Enable clipboard-related widgets when selected.
         """
         if checked:
             # Clipboard radio was just checked - ensure expand is unchecked
             self.rib_radio_select_expand.setChecked(False)
+            # Enable clipboard widgets
+            self.edit_seq_1_clipboard.set_clickable(True)
+            self.seq_2_checkbox.set_clickable(True)
+            self.edit_seq_2_clipboard.set_clickable(True)
 
     def _on_expand_radio_toggled(self, checked):
         """
         Handle rib_radio_select_expand toggles to ensure mutual exclusivity with clipboard radio.
+        Disable clipboard-related widgets when selected.
         """
         if checked:
             # Expand radio was just checked - ensure clipboard is unchecked
             self.rib_radio_select_clipboard.setChecked(False)
+            # Disable clipboard widgets
+            self.edit_seq_1_clipboard.set_clickable(False)
+            self.seq_2_checkbox.set_clickable(False)
+            self.edit_seq_2_clipboard.set_clickable(False)
 
     def _on_edit_seq_1_clipboard_clicked(self):
         """
@@ -519,14 +554,27 @@ class RadialInterfaceButtonSettings(QWidget):
         else:
             self.updated_icon_seq2.hide()
 
+    def _on_tooltip_saved(self, data):
+        """
+        Store data temporarily in tooltip_data when rib_tooltip_editor saves.
+        Show/hide updated_icon_tooltip based on data presence.
+        """
+        self.tooltip_data = data
+        if data:
+            self.updated_icon_tooltip.show()
+        else:
+            self.updated_icon_tooltip.hide()
+
     def _on_save_button_clicked(self):
         """
         Handle save button click to clear temporary data and hide icons.
         """
         self.seq_1_data = None
         self.seq_2_data = None
+        self.tooltip_data = None
         self.updated_icon_seq1.hide()
         self.updated_icon_seq2.hide()
+        self.updated_icon_tooltip.hide()
 
     def closeEvent(self, event):
         """
@@ -534,6 +582,16 @@ class RadialInterfaceButtonSettings(QWidget):
         """
         self.seq_1_data = None
         self.seq_2_data = None
+        self.tooltip_data = None
         self.updated_icon_seq1.hide()
         self.updated_icon_seq2.hide()
+        self.updated_icon_tooltip.hide()
         super().closeEvent(event)
+
+    def _on_tooltip_config_btn_clicked(self):
+        """
+        Handle rib_tooltip_config_btn click to open rib_tooltip_editor.
+        """
+        self.rib_tooltip_editor.show()
+        self.rib_tooltip_editor.raise_()
+        self.rib_tooltip_editor.activateWindow()

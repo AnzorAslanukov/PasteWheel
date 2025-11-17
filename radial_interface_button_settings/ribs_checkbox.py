@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QCheckBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QCheckBox, QGraphicsOpacityEffect
+from PyQt5.QtCore import Qt, QEvent
 from theme import Theme
 
 
@@ -26,29 +26,28 @@ class RibsCheckbox(QCheckBox):
         theme = Theme()
         self.colors = theme.get_colors()
 
-        # Handle non-clickable checkboxes
-        if not self.clickable:
-            self.setEnabled(False)
+        # Create opacity effect once (reused in _apply_style)
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
 
         # Apply styling
         self._apply_style()
 
+        # Set initial cursor based on clickability
+        if self.clickable:
+            self.setCursor(Qt.ArrowCursor)
+        else:
+            self.setCursor(Qt.ForbiddenCursor)
+
     def _apply_style(self):
         """Apply theme-based styling to the checkbox."""
         # Get appropriate colors from theme
-        background_color = self.colors.get("background", "#FFFFFF")
         text_color = self.colors.get("text", "#000000")
 
-        # If not clickable, use darker background colors
-        if not self.clickable:
-            background_color = self.colors.get("background", "#CCCCCC")  # Use darker background
-            indicator_bg = background_color  # Same darker color for indicator
-            indicator_border = background_color  # Blend border with background
-        else:
-            indicator_bg = self.colors.get("button", "#F0F0F0")
-            indicator_border = self.colors.get("border", "#CCCCCC")
+        # Apply stylesheet (use standard colors, let opacity handle disabled appearance)
+        indicator_bg = self.colors.get("button", "#F0F0F0")
+        indicator_border = self.colors.get("border", "#CCCCCC")
 
-        # Apply stylesheet
         self.setStyleSheet(f"""
             QCheckBox {{
                 background-color: transparent;
@@ -71,6 +70,12 @@ class RibsCheckbox(QCheckBox):
             }}
         """)
 
+        # Update opacity based on clickability
+        if not self.clickable:
+            self.opacity_effect.setOpacity(0.5)
+        else:
+            self.opacity_effect.setOpacity(1.0)
+
     def enterEvent(self, event):
         """Handle mouse enter event - change cursor based on clickability."""
         if self.clickable:
@@ -86,3 +91,49 @@ class RibsCheckbox(QCheckBox):
         else:
             self.setCursor(Qt.ForbiddenCursor)
         super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        """Override mouse press to block clicks on non-clickable checkboxes."""
+        if not self.clickable:
+            # Consume the event without processing it
+            event.ignore()
+            return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Override mouse release to block clicks on non-clickable checkboxes."""
+        if not self.clickable:
+            # Consume the event without processing it
+            event.ignore()
+            return
+        super().mouseReleaseEvent(event)
+
+    def hitButton(self, pos):
+        """Override to prevent the checkbox from responding to clicks when not clickable."""
+        if not self.clickable:
+            return False
+        return super().hitButton(pos)
+
+    def nextCheckState(self):
+        """Override to prevent state changes when not clickable."""
+        if not self.clickable:
+            return
+        super().nextCheckState()
+
+    def set_clickable(self, clickable):
+        """
+        Set the clickable state of the checkbox.
+
+        Args:
+            clickable: Boolean indicating if checkbox should be clickable
+        """
+        self.clickable = clickable
+        
+        # Update styling
+        self._apply_style()
+
+        # Update cursor based on new clickability state
+        if self.clickable:
+            self.setCursor(Qt.ArrowCursor)
+        else:
+            self.setCursor(Qt.ForbiddenCursor)
