@@ -122,7 +122,7 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Create sequential clipboard row widgets
         self.add_seq_2_clipboard = RibsLabel("Add sequential clipboard data:", "display", self.clipboard_section)
-        self.edit_seq_2_clipboard = RibsButton("Edit clipboard", clickable=False)
+        self.edit_seq_2_clipboard = RibsButton("Edit clipboard", clickable=False, parent=self.clipboard_section)
 
         # Create updated_icon QLabel with SVG (for seq1)
         self.updated_icon_seq1 = QLabel()
@@ -199,6 +199,7 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_1_data = None
         self.seq_2_data = None
         self.tooltip_data = None
+        self.label_data = None
 
         # Connect clipboard editors data_saved signals to store data
         self.seq_1_clipboard_editor.data_saved.connect(self._on_seq_1_data_saved)
@@ -268,6 +269,9 @@ class RadialInterfaceButtonSettings(QWidget):
         grid_layout.addWidget(self.rib_btn_title_symbol_btn, 1, 2)           # Row 2, Col 3
 
         btn_label_section_layout.addLayout(grid_layout)
+
+        # Connect char input text changed to update label_data
+        self.rib_btn_title_char_input_label.widget.textChanged.connect(self._on_char_text_changed)
 
         # Add tooltip configuration row
         tooltip_row_layout = QHBoxLayout()
@@ -367,6 +371,9 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_radio_select_clipboard.toggled.connect(self._on_clipboard_radio_toggled)
         self.rib_radio_select_expand.toggled.connect(self._on_expand_radio_toggled)
 
+        # Initialize save_button to disabled state (no data has been set yet)
+        self._update_save_button_clickability()
+
         # Defer instantiation of the emoji picker until it's needed
         self.emoji_symbol_picker = None
 
@@ -434,6 +441,9 @@ class RadialInterfaceButtonSettings(QWidget):
             self.chosen_emoji_ribs_disp_label.hide()
             # Reduce section height when emoji widgets are hidden
             self.btn_label_section.setFixedHeight(150)
+            # Set label_data to char input text
+            self.label_data = self.rib_btn_title_char_input_label.widget.text()
+        self._update_save_button_clickability()
 
     def _on_symbol_radio_toggled(self, checked):
         """
@@ -455,6 +465,9 @@ class RadialInterfaceButtonSettings(QWidget):
             self.chosen_emoji_ribs_disp_label.show()
             # Increase section height when emoji widgets are shown
             self.btn_label_section.setFixedHeight(200)
+            # Set label_data to chosen emoji text
+            self.label_data = self.chosen_emoji.widget.text()
+        self._update_save_button_clickability()
 
     def _on_tooltip_checkbox_changed(self, state):
         """
@@ -479,7 +492,8 @@ class RadialInterfaceButtonSettings(QWidget):
             # Enable clipboard widgets
             self.edit_seq_1_clipboard.set_clickable(True)
             self.seq_2_checkbox.set_clickable(True)
-            self.edit_seq_2_clipboard.set_clickable(True)
+            self.edit_seq_2_clipboard.set_clickable(False)
+        self._update_save_button_clickability()
 
     def _on_expand_radio_toggled(self, checked):
         """
@@ -493,6 +507,13 @@ class RadialInterfaceButtonSettings(QWidget):
             self.edit_seq_1_clipboard.set_clickable(False)
             self.seq_2_checkbox.set_clickable(False)
             self.edit_seq_2_clipboard.set_clickable(False)
+            # Clear clipboard data when switching to expand mode
+            self.seq_1_data = None
+            self.seq_2_data = None
+            # Hide updated icons as data is cleared
+            self.updated_icon_seq1.hide()
+            self.updated_icon_seq2.hide()
+        self._update_save_button_clickability()
 
     def _on_edit_seq_1_clipboard_clicked(self):
         """
@@ -516,6 +537,9 @@ class RadialInterfaceButtonSettings(QWidget):
         Updates the chosen_emoji label with the selected emoji/symbol.
         """
         self.chosen_emoji.widget.setText(emoji_symbol)
+        # Set label_data to selected emoji/symbol
+        self.label_data = emoji_symbol
+        self._update_save_button_clickability()
 
     def _on_symbol_btn_clicked(self):
         """
@@ -542,6 +566,7 @@ class RadialInterfaceButtonSettings(QWidget):
             self.updated_icon_seq1.show()
         else:
             self.updated_icon_seq1.hide()
+        self._update_save_button_clickability()
 
     def _on_seq_2_data_saved(self, data):
         """
@@ -553,6 +578,7 @@ class RadialInterfaceButtonSettings(QWidget):
             self.updated_icon_seq2.show()
         else:
             self.updated_icon_seq2.hide()
+        self._update_save_button_clickability()
 
     def _on_tooltip_saved(self, data):
         """
@@ -572,6 +598,7 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_1_data = None
         self.seq_2_data = None
         self.tooltip_data = None
+        self.label_data = None
         self.updated_icon_seq1.hide()
         self.updated_icon_seq2.hide()
         self.updated_icon_tooltip.hide()
@@ -583,10 +610,20 @@ class RadialInterfaceButtonSettings(QWidget):
         self.seq_1_data = None
         self.seq_2_data = None
         self.tooltip_data = None
+        self.label_data = None
         self.updated_icon_seq1.hide()
         self.updated_icon_seq2.hide()
         self.updated_icon_tooltip.hide()
         super().closeEvent(event)
+
+    def _on_char_text_changed(self):
+        """
+        Handle text changes in the character input label.
+        Update label_data if characters radio button is selected.
+        """
+        if self.rib_btn_title_char_radio_btn.isChecked():
+            self.label_data = self.rib_btn_title_char_input_label.widget.text()
+        self._update_save_button_clickability()
 
     def _on_tooltip_config_btn_clicked(self):
         """
@@ -595,3 +632,22 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_tooltip_editor.show()
         self.rib_tooltip_editor.raise_()
         self.rib_tooltip_editor.activateWindow()
+
+    def _update_save_button_clickability(self):
+        """
+        Update the save button's clickability based on current state.
+        Requires label_data to have value; for clipboard mode also requires seq_1 or seq_2 data.
+        """
+        label_has_value = self.label_data is not None and self.label_data.strip() != ""
+        is_clipboard = self.rib_radio_select_clipboard.isChecked()
+        seq_has_value = (self.seq_1_data is not None and self.seq_1_data.strip() != "") or (self.seq_2_data is not None and self.seq_2_data.strip() != "")
+
+        # label_data is ALWAYS required
+        if not label_has_value:
+            self.save_button.set_clickable(False)
+        elif is_clipboard:
+            # In clipboard mode, also need seq_1_data and/or seq_2_data
+            self.save_button.set_clickable(seq_has_value)
+        else:  # expand mode
+            # In expand mode, label_data is sufficient
+            self.save_button.set_clickable(True)
