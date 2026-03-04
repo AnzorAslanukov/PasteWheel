@@ -230,6 +230,26 @@ class PasteWheelConfig:
 
         return False
 
+    def has_expand_button_in_layer(self, layer):
+        """
+        Check if a given layer contains at least one button of type 'expand'.
+
+        Used to determine whether the next layer tab should be unlocked in the
+        settings window. A higher layer tab becomes available only when the
+        previous layer has at least one expand-type button.
+
+        Args:
+            layer: Layer number (1, 2, or 3) to check
+
+        Returns:
+            True if the layer contains at least one button with button_type == 'expand',
+            False otherwise
+        """
+        layer_buttons = self.get_buttons_by_layer(layer)
+        if not layer_buttons:
+            return False
+        return any(b.get("button_type") == "expand" for b in layer_buttons)
+
     # Emoji Data Management Methods
 
     @classmethod

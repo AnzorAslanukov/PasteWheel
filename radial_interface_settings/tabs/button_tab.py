@@ -6,7 +6,7 @@ from radial_interface_settings.radial_interface_settings_button import RadialInt
 
 
 class ButtonTab(QWidget):
-    def __init__(self, parent=None, layer=None, enabled=True, settings_window=None):
+    def __init__(self, parent=None, layer=None, enabled=True, settings_window=None, tooltip=None):
         """
         Initialize the Button tab.
         
@@ -15,10 +15,13 @@ class ButtonTab(QWidget):
             layer: Layer number (1, 2, or 3) to identify the tab
             enabled: Boolean indicating whether tab should be visible and clickable (default: True)
             settings_window: Reference to parent RadialInterfaceSettings window
+            tooltip: Optional tooltip string shown on the tab bar entry when hovering.
+                     Pass None (default) or an empty string for no tooltip.
         """
         super().__init__(parent)
         self.layer = layer
         self.settings_window = settings_window
+        self.tooltip = tooltip or ""
         
         # Get theme colors
         theme = Theme()

@@ -12,7 +12,6 @@ from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboard
 from radial_interface_button_settings.ribs_tooltip_editor import RibsTooltipEditor
 from radial_interface_button_settings.emoji_symbol_picker.emoji_symbol_picker import EmojiSymbolPicker
 
-
 class RadialInterfaceButtonSettings(QWidget):
     def __init__(self, button_id=None, parent=None):
         """
