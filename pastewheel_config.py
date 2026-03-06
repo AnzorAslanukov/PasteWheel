@@ -1,5 +1,9 @@
 import json
 import os
+from debug_logger import DebugLogger
+
+# Set to True to enable debug logging to debug.txt
+DEBUG = False
 
 
 class PasteWheelConfig:
@@ -33,7 +37,8 @@ class PasteWheelConfig:
                     config = json.load(file)
                     return config
             except (json.JSONDecodeError, IOError) as e:
-                print(f"Error reading config file: {e}. Using defaults.")
+                if DEBUG:
+                    DebugLogger.log(f"Error reading config file: {e}. Using defaults.")
                 return self.DEFAULT_CONFIG.copy()
         else:
             # Create default config file
@@ -55,7 +60,8 @@ class PasteWheelConfig:
                 json.dump(config, file, indent=4)
             self.config = config
         except IOError as e:
-            print(f"Error writing config file: {e}")
+            if DEBUG:
+                DebugLogger.log(f"Error writing config file: {e}")
     
     def get_theme(self):
         """
@@ -271,10 +277,12 @@ class PasteWheelConfig:
                     cls.EMOJI_CACHE = emoji_data
                     return emoji_data
             except (json.JSONDecodeError, IOError) as e:
-                print(f"Error reading emoji data file: {e}")
+                if DEBUG:
+                    DebugLogger.log(f"Error reading emoji data file: {e}")
                 return {}
         else:
-            print(f"Emoji data file not found: {cls.EMOJI_DATA_FILE}")
+            if DEBUG:
+                DebugLogger.log(f"Emoji data file not found: {cls.EMOJI_DATA_FILE}")
             return {}
 
     @classmethod

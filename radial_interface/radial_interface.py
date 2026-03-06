@@ -3,6 +3,7 @@ from PyQt5.QtGui import QPainter, QPen, QColor
 from PyQt5.QtCore import Qt
 import math
 from radial_interface.radial_interface_control_button import RadialInterfaceControlButton
+from radial_interface.radial_interface_button_widget import RadialInterfaceButtonWidget
 from radial_interface_settings.radial_interface_settings import RadialInterfaceSettings
 from theme import Theme
 from pastewheel_config import PasteWheelConfig
@@ -37,8 +38,11 @@ class RadialInterface(QWidget):
         theme = Theme()
         self.colors = theme.get_colors()
         
+        # Track rendered button widgets so they can be refreshed later
+        self.button_widgets = []
+
         self.initUI()
-    
+
     def _validate_layers(self):
         """Validate that layers don't exceed their capacity constraints."""
         if len(self.layer1) > self.LAYER1_MAX_BUTTONS:
@@ -103,14 +107,61 @@ class RadialInterface(QWidget):
         
         return positions
 
+    def _load_buttons_from_config(self):
+        """
+        Read button data from PasteWheelConfig and populate self.layer1/2/3.
+        Called during initUI so the layers reflect the saved configuration.
+        """
+        config = PasteWheelConfig()
+        for layer_num, layer_list in [(1, self.layer1), (2, self.layer2), (3, self.layer3)]:
+            layer_buttons = config.get_buttons_by_layer(layer_num)
+            if layer_buttons:
+                layer_list.clear()
+                layer_list.extend(layer_buttons)
+        self._validate_layers()
+
+    def _render_button_widgets(self):
+        """
+        Create and position a RadialInterfaceButtonWidget for every button
+        in layer1, layer2, and layer3.  Existing widgets are removed first.
+        """
+        # Remove any previously rendered button widgets
+        for widget in self.button_widgets:
+            widget.deleteLater()
+        self.button_widgets.clear()
+
+        layer_map = {
+            1: (self.layer1, self.LAYER1_RADIUS),
+            2: (self.layer2, self.LAYER2_RADIUS),
+            3: (self.layer3, self.LAYER3_RADIUS),
+        }
+
+        btn_size = RadialInterfaceButtonWidget.BUTTON_SIZE
+        half = btn_size // 2
+
+        for layer_num, (layer_list, radius) in layer_map.items():
+            total = len(layer_list)
+            if total == 0:
+                continue
+            for idx, button_data in enumerate(layer_list):
+                x, y = self._calculate_button_position(radius, idx, total)
+                widget = RadialInterfaceButtonWidget(button_data, parent=self)
+                # Centre the widget on the calculated position
+                widget.move(int(x) - half, int(y) - half)
+                widget.show()
+                self.button_widgets.append(widget)
+
     def initUI(self):
         self.setWindowTitle('Radial Interface')
         self.setGeometry(100, 100, self.width, self.height)
-        
+
+        # Load button data from config into self.layer1/2/3
+        self._load_buttons_from_config()
+
         # Apply theme background color
         background_color = self.colors.get("background", "#FFFFFF")
         self.setStyleSheet(f"background-color: {background_color};")
-        
+
         # Create close button in lower-left corner
         self.close_btn = RadialInterfaceControlButton(
             icon_path="assets/close_pastewheel.svg",
@@ -161,7 +212,18 @@ class RadialInterface(QWidget):
         center_x = (self.width // 2) - (button_size // 2)
         center_y = (self.height // 2) - (button_size // 2)
         self.add_new_btns.move(center_x, center_y)
-        
+
+        # Hide the "add first button" widget when buttons already exist in config;
+        # show it only when there are no buttons yet.
+        config = PasteWheelConfig()
+        if config.has_any_buttons():
+            self.add_new_btns.hide()
+        else:
+            self.add_new_btns.show()
+
+        # Render existing buttons as visual widgets on the radial rings
+        self._render_button_widgets()
+
         # Connect button clicks to toggle visibility
         self.keyboard_btn.clicked.connect(self.on_keyboard_btn_clicked)
         self.mouse_btn.clicked.connect(self.on_mouse_btn_clicked)

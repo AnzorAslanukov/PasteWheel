@@ -1,6 +1,10 @@
 from PyQt5.QtWidgets import QLabel, QLineEdit, QWidget, QVBoxLayout, QGraphicsOpacityEffect
 from PyQt5.QtCore import Qt
 from theme import Theme
+from debug_logger import DebugLogger
+
+# Set to True to enable debug logging to debug.txt
+DEBUG = False
 
 
 class EspLabel(QWidget):
@@ -137,13 +141,20 @@ class EspLabel(QWidget):
             }}
         """)
 
-        # Set opacity using QGraphicsOpacityEffect for emoji picker visual feedback
-        opacity_effect = QGraphicsOpacityEffect()
-        if not self.clickable and self.is_input_type:
-            opacity_effect.setOpacity(0.6)  # Different opacity for emoji picker context
-        else:
-            opacity_effect.setOpacity(1.0)
-        self.setGraphicsEffect(opacity_effect)
+        # Set opacity using QGraphicsOpacityEffect.
+        # IMPORTANT: the effect must be stored as an instance variable so that
+        # Python keeps a reference to it.  setGraphicsEffect() transfers C++
+        # ownership to the widget; if the Python wrapper is a local variable it
+        # goes out of scope immediately and Python's GC tries to delete the C++
+        # object that Qt already owns -> double-free / use-after-free hard crash.
+        if not hasattr(self, '_opacity_effect') or self._opacity_effect is None:
+            self._opacity_effect = QGraphicsOpacityEffect(self)
+            self.setGraphicsEffect(self._opacity_effect)
+            if DEBUG:
+                DebugLogger.log(f"EspLabel: created new _opacity_effect")
+
+        # Non-clickable input labels use 0.6 opacity in the emoji picker context
+        self._opacity_effect.setOpacity(0.6 if (not self.clickable and self.is_input_type) else 1.0)
 
     def enterEvent(self, event):
         """Handle mouse enter event - customized for emoji picker interaction with context-specific cursor behavior."""
@@ -224,6 +235,8 @@ class EspLabel(QWidget):
 
     def set_clickable(self, clickable):
         """Set the clickable state and update visual feedback for emoji picker."""
+        if DEBUG:
+            DebugLogger.log(f"EspLabel.set_clickable: -> {clickable}")
         self.clickable = clickable
         if self.is_input_type and isinstance(self.widget, QLineEdit):
             self.widget.setEnabled(clickable)

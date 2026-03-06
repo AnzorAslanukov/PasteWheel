@@ -1,6 +1,10 @@
 from PyQt5.QtWidgets import QPushButton, QGraphicsOpacityEffect
 from PyQt5.QtCore import Qt
 from theme import Theme
+from debug_logger import DebugLogger
+
+# Set to True to enable debug logging to debug.txt
+DEBUG = False
 
 
 class EspPushBtn(QPushButton):
@@ -77,13 +81,19 @@ class EspPushBtn(QPushButton):
             }}
         """)
 
-        # Set opacity using QGraphicsOpacityEffect for non-clickable state
-        opacity_effect = QGraphicsOpacityEffect()
-        if not self.clickable:
-            opacity_effect.setOpacity(0.5)
-        else:
-            opacity_effect.setOpacity(1.0)
-        self.setGraphicsEffect(opacity_effect)
+        # Set opacity using QGraphicsOpacityEffect.
+        # IMPORTANT: the effect must be stored as an instance variable so that
+        # Python keeps a reference to it.  setGraphicsEffect() transfers C++
+        # ownership to the widget; if the Python wrapper is a local variable it
+        # goes out of scope immediately and Python's GC tries to delete the C++
+        # object that Qt already owns -> double-free / use-after-free hard crash.
+        if not hasattr(self, '_opacity_effect') or self._opacity_effect is None:
+            self._opacity_effect = QGraphicsOpacityEffect(self)
+            self.setGraphicsEffect(self._opacity_effect)
+            if DEBUG:
+                DebugLogger.log(f"EspPushBtn: created new _opacity_effect for '{self.text()}'")
+
+        self._opacity_effect.setOpacity(0.5 if not self.clickable else 1.0)
 
     def enterEvent(self, event):
         """Handle mouse enter event - apply hover effect and set appropriate cursor."""

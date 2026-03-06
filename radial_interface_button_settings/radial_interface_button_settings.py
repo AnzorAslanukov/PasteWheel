@@ -4,6 +4,8 @@ from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtGui import QPixmap, QPainter
 from PyQt5.QtCore import QSize, QRectF
 from theme import Theme
+from pastewheel_config import PasteWheelConfig
+from debug_logger import DebugLogger
 from radial_interface_button_settings.ribs_button import RibsButton
 from radial_interface_button_settings.ribs_label import RibsLabel
 from radial_interface_button_settings.ribs_checkbox import RibsCheckbox
@@ -12,17 +14,22 @@ from radial_interface_button_settings.ribs_clipboard_editor import RibsClipboard
 from radial_interface_button_settings.ribs_tooltip_editor import RibsTooltipEditor
 from radial_interface_button_settings.emoji_symbol_picker.emoji_symbol_picker import EmojiSymbolPicker
 
+# Set to True to enable debug logging to debug.txt
+DEBUG = False
+
 class RadialInterfaceButtonSettings(QWidget):
-    def __init__(self, button_id=None, parent=None):
+    def __init__(self, button_id=None, layer=None, parent=None):
         """
         Initialize the RadialInterfaceButtonSettings window.
-        
+
         Args:
-            button_id: ID of the button to configure (optional)
+            button_id: ID of the button to configure (optional, for editing existing buttons)
+            layer: Layer number (1, 2, or 3) this button will be saved to (optional)
             parent: Parent widget
         """
         super().__init__(parent, Qt.Window)
         self.button_id = button_id
+        self.layer = layer
         self.width = 400
         self.height = 400
         
@@ -52,7 +59,8 @@ class RadialInterfaceButtonSettings(QWidget):
             offset_y = 100
         
         self.setGeometry(offset_x, offset_y, self.width, self.height)
-        print(f"DEBUG: RadialInterfaceButtonSettings geometry set to: {offset_x}, {offset_y}, {self.width}, {self.height}")
+        if DEBUG:
+            DebugLogger.log(f"RadialInterfaceButtonSettings geometry set to: {offset_x}, {offset_y}, {self.width}, {self.height}")
         
         # Apply theme colors to the window background and text
         background_color = self.colors.get("background", "#FFFFFF")
@@ -592,8 +600,60 @@ class RadialInterfaceButtonSettings(QWidget):
 
     def _on_save_button_clicked(self):
         """
-        Handle save button click to clear temporary data and hide icons.
+        Handle save button click: build button data dict and persist to config.
+
+        Button ID format: {type}_l{layer}_s{sequence}
+          - type prefix: "clip" for clipboard buttons, "exp" for expand buttons
+          - layer: self.layer (passed in from the ButtonTab that opened this window)
+          - sequence: count of existing buttons on this layer + 1
+
+        Clipboard data is stored as a list:
+          - ["seq1 content"]               → single clipboard item
+          - ["seq1 content", "seq2 content"] → sequential clipboard (two items)
+          - []                             → expand-type button (no clipboard data)
         """
+        config = PasteWheelConfig()
+
+        # Determine button type
+        is_clipboard = self.rib_radio_select_clipboard.isChecked()
+        type_prefix = "clip" if is_clipboard else "exp"
+
+        # Determine layer (fall back to 1 if not set)
+        layer = self.layer if self.layer is not None else 1
+
+        # Calculate sequence number from existing buttons on this layer
+        existing = config.get_buttons_by_layer(layer) or []
+        sequence = len(existing) + 1
+
+        # Build button ID
+        button_id = f"{type_prefix}_l{layer}_s{sequence}"
+
+        # Build clipboard list
+        if is_clipboard:
+            clipboard = [self.seq_1_data]
+            if (self.seq_2_checkbox.isChecked()
+                    and self.seq_2_data is not None
+                    and self.seq_2_data.strip() != ""):
+                clipboard.append(self.seq_2_data)
+        else:
+            clipboard = []
+
+        # Build button data dict
+        button_data = {
+            "id": button_id,
+            "layer": layer,
+            "label": self.label_data,
+            "clipboard": clipboard,
+            "button_type": type_prefix,
+            "tooltip": self.tooltip_data or "",
+        }
+
+        # Persist to pastewheel_config.json
+        config.add_button(button_data)
+        if DEBUG:
+            DebugLogger.log(f"Button saved: {button_data}")
+
+        # Reset temporary state and hide update icons
         self.seq_1_data = None
         self.seq_2_data = None
         self.tooltip_data = None
@@ -601,6 +661,9 @@ class RadialInterfaceButtonSettings(QWidget):
         self.updated_icon_seq1.hide()
         self.updated_icon_seq2.hide()
         self.updated_icon_tooltip.hide()
+
+        # Close the window after saving
+        self.close()
 
     def closeEvent(self, event):
         """
