@@ -1,5 +1,63 @@
 {
     "theme": "light",
-    "buttons": [],
+    "buttons": [
+        {
+            "id": "clip_l1_s5",
+            "layer": 1,
+            "label": "5th",
+            "clipboard": [
+                "5th button"
+            ],
+            "button_type": "clip",
+            "tooltip": ""
+        },
+        {
+            "id": "clip_l1_s6",
+            "layer": 1,
+            "label": "6th",
+            "clipboard": [
+                "6"
+            ],
+            "button_type": "clip",
+            "tooltip": ""
+        },
+        {
+            "id": "clip_l1_s7",
+            "layer": 1,
+            "label": "7th",
+            "clipboard": [
+                "7th"
+            ],
+            "button_type": "clip",
+            "tooltip": ""
+        },
+        {
+            "id": "clip_l1_s8",
+            "layer": 1,
+            "label": "8th",
+            "clipboard": [
+                "8th"
+            ],
+            "button_type": "clip",
+            "tooltip": ""
+        },
+        {
+            "id": "exp_l1_s5",
+            "layer": 1,
+            "label": "exp",
+            "clipboard": [],
+            "button_type": "exp",
+            "tooltip": ""
+        },
+        {
+            "id": "exp_l2_s1",
+            "layer": 2,
+            "label": "L2E",
+            "clipboard": [],
+            "button_type": "exp",
+            "tooltip": "",
+            "parent_id": "exp_l1_s5"
+        }
+    ],
     "input_mode": "mouse"
 }

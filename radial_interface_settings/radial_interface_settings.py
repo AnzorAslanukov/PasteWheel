@@ -151,20 +151,17 @@ class RadialInterfaceSettings(QWidget):
         layout.addWidget(tab_widget)
         self.setLayout(layout)
     
-    def open_button_settings(self, button_id=None, layer=None):
+    def open_button_settings(self, button_id=None, layer=None, parent_id=None):
         """
         Open the RadialInterfaceButtonSettings window.
 
         Args:
             button_id: ID of the button to configure (optional, for editing existing buttons)
             layer: Layer number (1, 2, or 3) the button will belong to (optional)
+            parent_id: ID of the parent expand button (for layer 2/3 child buttons, optional)
         """
-        # Create a new instance and keep reference to prevent garbage collection
-        print("DEBUG: RadialInterfaceSettings.open_button_settings() called")
-        print(f"DEBUG: button_id = {button_id}, layer = {layer}")
-        button_settings = RadialInterfaceButtonSettings(button_id=button_id, layer=layer, parent=self)
-        print(f"DEBUG: RadialInterfaceButtonSettings created: {button_settings}")
+        button_settings = RadialInterfaceButtonSettings(
+            button_id=button_id, layer=layer, parent=self, parent_id=parent_id
+        )
         self.button_settings_windows.append(button_settings)
-        print(f"DEBUG: Window added to list, total windows: {len(self.button_settings_windows)}")
         button_settings.show()
-        print(f"DEBUG: Window shown, geometry: {button_settings.geometry()}")

@@ -18,7 +18,7 @@ from radial_interface_button_settings.emoji_symbol_picker.emoji_symbol_picker im
 DEBUG = False
 
 class RadialInterfaceButtonSettings(QWidget):
-    def __init__(self, button_id=None, layer=None, parent=None):
+    def __init__(self, button_id=None, layer=None, parent=None, parent_id=None):
         """
         Initialize the RadialInterfaceButtonSettings window.
 
@@ -26,10 +26,12 @@ class RadialInterfaceButtonSettings(QWidget):
             button_id: ID of the button to configure (optional, for editing existing buttons)
             layer: Layer number (1, 2, or 3) this button will be saved to (optional)
             parent: Parent widget
+            parent_id: ID of the parent expand button (for layer 2/3 child buttons)
         """
         super().__init__(parent, Qt.Window)
         self.button_id = button_id
         self.layer = layer
+        self.parent_id = parent_id
         self.width = 400
         self.height = 400
         
@@ -621,8 +623,13 @@ class RadialInterfaceButtonSettings(QWidget):
         # Determine layer (fall back to 1 if not set)
         layer = self.layer if self.layer is not None else 1
 
-        # Calculate sequence number from existing buttons on this layer
-        existing = config.get_buttons_by_layer(layer) or []
+        # Calculate sequence number:
+        # For layer 2/3 child buttons, count siblings under the same parent.
+        # For layer 1 (or buttons without a parent), count all buttons in the layer.
+        if self.parent_id is not None:
+            existing = config.get_child_buttons_by_parent(self.parent_id)
+        else:
+            existing = config.get_buttons_by_layer(layer) or []
         sequence = len(existing) + 1
 
         # Build button ID
@@ -647,6 +654,9 @@ class RadialInterfaceButtonSettings(QWidget):
             "button_type": type_prefix,
             "tooltip": self.tooltip_data or "",
         }
+        # Include parent_id for layer 2/3 child buttons
+        if self.parent_id is not None:
+            button_data["parent_id"] = self.parent_id
 
         # Persist to pastewheel_config.json
         config.add_button(button_data)

@@ -5,15 +5,19 @@ import math
 from radial_interface.radial_interface_control_button import RadialInterfaceControlButton
 from radial_interface.radial_interface_button_widget import RadialInterfaceButtonWidget
 from radial_interface_settings.radial_interface_settings import RadialInterfaceSettings
+from radial_interface_button_settings.radial_interface_button_settings import RadialInterfaceButtonSettings
 from theme import Theme
 from pastewheel_config import PasteWheelConfig
 
 
 class RadialInterface(QWidget):
-    # Layer capacity constraints
+    # Layer capacity constraints.
+    # Layer 1: 8 buttons total.
+    # Layer 2: 16 child buttons per Layer-1 expand button; up to 8 parents → 128 total.
+    # Layer 3: 24 child buttons per Layer-2 expand button; up to 128 parents → 3072 total.
     LAYER1_MAX_BUTTONS = 8
-    LAYER2_MAX_BUTTONS = 16
-    LAYER3_MAX_BUTTONS = 24
+    LAYER2_MAX_BUTTONS = 128   # 8 parents × 16 children
+    LAYER3_MAX_BUTTONS = 3072  # 128 parents × 24 children
     
     # Circle radii
     LAYER1_RADIUS = 50
@@ -25,6 +29,7 @@ class RadialInterface(QWidget):
         self.width = width
         self.height = height
         self.settings_window = None
+        self.button_settings_window = None
         
         # Initialize layers with validation
         self.layer1 = layer1 if layer1 is not None else []
@@ -227,6 +232,7 @@ class RadialInterface(QWidget):
         # Connect button clicks to toggle visibility
         self.keyboard_btn.clicked.connect(self.on_keyboard_btn_clicked)
         self.mouse_btn.clicked.connect(self.on_mouse_btn_clicked)
+        self.add_new_btns.clicked.connect(self.on_add_new_btns_clicked)
 
         # Connect settings button to open settings window
         self.settings_btn.clicked.connect(self.on_settings_btn_clicked)
@@ -256,6 +262,16 @@ class RadialInterface(QWidget):
         # Save input mode to configuration
         config = PasteWheelConfig()
         config.set_input_mode("mouse")
+
+    def on_add_new_btns_clicked(self):
+        """Handle add-new-buttons click — open button settings for the first layer-1 button."""
+        if self.button_settings_window is None:
+            self.button_settings_window = RadialInterfaceButtonSettings(
+                button_id=None, layer=1, parent=self
+            )
+        self.button_settings_window.show()
+        self.button_settings_window.raise_()
+        self.button_settings_window.activateWindow()
 
     def on_settings_btn_clicked(self):
         """Handle settings button click - open settings window."""

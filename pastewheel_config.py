@@ -238,7 +238,7 @@ class PasteWheelConfig:
 
     def has_expand_button_in_layer(self, layer):
         """
-        Check if a given layer contains at least one button of type 'expand'.
+        Check if a given layer contains at least one button of type 'exp'.
 
         Used to determine whether the next layer tab should be unlocked in the
         settings window. A higher layer tab becomes available only when the
@@ -248,13 +248,39 @@ class PasteWheelConfig:
             layer: Layer number (1, 2, or 3) to check
 
         Returns:
-            True if the layer contains at least one button with button_type == 'expand',
+            True if the layer contains at least one button with button_type == 'exp',
             False otherwise
         """
         layer_buttons = self.get_buttons_by_layer(layer)
         if not layer_buttons:
             return False
-        return any(b.get("button_type") == "expand" for b in layer_buttons)
+        return any(b.get("button_type") == "exp" for b in layer_buttons)
+
+    def get_expand_buttons_by_layer(self, layer):
+        """
+        Get all expand-type buttons for a specific layer.
+
+        Args:
+            layer: Layer number (1, 2, or 3)
+
+        Returns:
+            List of expand button dicts in that layer, or [] if none found.
+        """
+        layer_buttons = self.get_buttons_by_layer(layer) or []
+        return [b for b in layer_buttons if b.get("button_type") == "exp"]
+
+    def get_child_buttons_by_parent(self, parent_id):
+        """
+        Get all buttons whose parent_id field matches the given parent_id.
+
+        Args:
+            parent_id: The ID of the parent expand button.
+
+        Returns:
+            List of child button dicts, or [] if none found.
+        """
+        all_buttons = self.config.get("buttons", [])
+        return [b for b in all_buttons if b.get("parent_id") == parent_id]
 
     # Emoji Data Management Methods
 
