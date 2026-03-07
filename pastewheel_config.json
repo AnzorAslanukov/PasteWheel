@@ -57,6 +57,14 @@
             "button_type": "exp",
             "tooltip": "",
             "parent_id": "exp_l1_s5"
+        },
+        {
+            "id": "exp_l2_s2",
+            "layer": 2,
+            "label": "L2E",
+            "clipboard": [],
+            "button_type": "exp",
+            "tooltip": ""
         }
     ],
     "input_mode": "mouse"

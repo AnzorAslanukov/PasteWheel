@@ -351,18 +351,18 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_radio_select_expand = RibsRadioBtn("", checked=False, parent=self)
 
         # Create container widget for first row (clipboard label + radio) to enable centering
-        type_row1_container = QWidget(self)
-        type_row1_layout = QHBoxLayout(type_row1_container)
+        self.type_row1_container = QWidget(self)
+        type_row1_layout = QHBoxLayout(self.type_row1_container)
         type_row1_layout.addWidget(self.rib_radio_select_clipboard_disp_label)
         type_row1_layout.addWidget(self.rib_radio_select_clipboard)
-        layout.addWidget(type_row1_container, alignment=Qt.AlignCenter)
+        layout.addWidget(self.type_row1_container, alignment=Qt.AlignCenter)
 
         # Create container widget for second row (expand label + radio) to enable centering
-        type_row2_container = QWidget(self)
-        type_row2_layout = QHBoxLayout(type_row2_container)
+        self.type_row2_container = QWidget(self)
+        type_row2_layout = QHBoxLayout(self.type_row2_container)
         type_row2_layout.addWidget(self.rib_radio_select_expand_disp_label)
         type_row2_layout.addWidget(self.rib_radio_select_expand)
-        layout.addWidget(type_row2_container, alignment=Qt.AlignCenter)
+        layout.addWidget(self.type_row2_container, alignment=Qt.AlignCenter)
 
         # Set custom vertical spacing between the type selection rows - adjustable value
         layout.setSpacing(8)  # CUSTOM VALUE: Adjust this number to control vertical gap between rows
@@ -382,6 +382,9 @@ class RadialInterfaceButtonSettings(QWidget):
 
         # Initialize save_button to disabled state (no data has been set yet)
         self._update_save_button_clickability()
+
+        # Apply layer-specific constraints (e.g. hide type selection for Layer 3)
+        self._apply_layer_constraints()
 
         # Defer instantiation of the emoji picker until it's needed
         self.emoji_symbol_picker = None
@@ -704,6 +707,27 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_tooltip_editor.show()
         self.rib_tooltip_editor.raise_()
         self.rib_tooltip_editor.activateWindow()
+
+    def _apply_layer_constraints(self):
+        """
+        Enforce layer-specific UI constraints.
+
+        **Rule 1 — Layer 3 buttons are clipboard-only:**
+        When ``self.layer == 3``, the button-type selection section (the
+        "Select button type" label and both clipboard/expand radio rows) is
+        hidden entirely.  The clipboard radio button is forced checked so that
+        ``_on_save_button_clicked`` always saves a clipboard-type button for
+        Layer 3 without any user action required.
+
+        Layers 1 and 2 show the full type-selection UI (clipboard or expand).
+        """
+        if self.layer == 3:
+            # Hide the type-selection label and both radio rows
+            self.rib_btn_type_disp_label.hide()
+            self.type_row1_container.hide()
+            self.type_row2_container.hide()
+            # Force clipboard type — Layer 3 buttons are always clipboard
+            self.rib_radio_select_clipboard.setChecked(True)
 
     def _update_save_button_clickability(self):
         """

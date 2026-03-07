@@ -13,7 +13,9 @@ from debug_logger import DebugLogger
 # Set to True to enable debug logging to debug.txt
 DEBUG = False
 
-DELETE_ICON_PATH = "assets/delete_icon.svg"
+DELETE_ICON_PATH    = "assets/delete_icon.svg"
+CLIPBOARD_ICON_PATH = "assets/clipboard_icon.svg"
+EXPAND_ICON_PATH    = "assets/expand_icon.svg"
 
 # Maximum number of buttons allowed per layer (per-parent for layers 2 and 3)
 LAYER_MAX_BUTTONS = {1: 8, 2: 16, 3: 24}
@@ -132,9 +134,45 @@ class ButtonTab(QWidget):
         painter.end()
         return QIcon(pixmap)
 
+    def _make_type_icon_label(self, button_type: str) -> "QLabel":
+        """
+        Build a QLabel containing the clipboard or expand SVG icon.
+
+        The label is given no fixed size so it participates in the row's
+        stretch layout (stretch=1, same as the delete button) and the icon
+        is centred inside it.
+
+        Args:
+            button_type: ``"clip"`` for clipboard icon, ``"exp"`` for expand icon.
+
+        Returns:
+            QLabel with the rendered SVG pixmap, or an empty QLabel if the
+            SVG file cannot be loaded.
+        """
+        icon_path = CLIPBOARD_ICON_PATH if button_type == "clip" else EXPAND_ICON_PATH
+        label = QLabel(self.inner_widget)
+        label.setAlignment(Qt.AlignCenter)
+
+        renderer = QSvgRenderer(icon_path)
+        if not renderer.isValid():
+            return label
+
+        size = QSize(24, 24)
+        pixmap = QPixmap(size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter, QRectF(0, 0, size.width(), size.height()))
+        painter.end()
+        label.setPixmap(pixmap)
+        return label
+
     def _make_button_row(self, btn_data, delete_icon):
         """
-        Build a single [Edit 80% | Delete 20%] row widget for a saved button.
+        Build a single [Type icon | Edit | Delete] row widget for a saved button.
+
+        The type icon (clipboard or expand SVG) occupies the same proportional
+        width as the delete button (stretch=1 each), while the edit button
+        takes the remaining space (stretch=4).
 
         Args:
             btn_data: Button data dict from config.
@@ -145,11 +183,16 @@ class ButtonTab(QWidget):
         """
         button_id = btn_data.get("id", "")
         label = btn_data.get("label", button_id)
+        button_type = btn_data.get("button_type", "clip")
 
         row_widget = QWidget(self.inner_widget)
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(4)
+
+        # Type icon — same stretch weight as the delete button
+        type_icon_label = self._make_type_icon_label(button_type)
+        type_icon_label.setParent(row_widget)
 
         edit_btn = RadialInterfaceSettingsButton(f"Edit: {label}", parent=row_widget)
         edit_btn.clicked.connect(partial(self.on_edit_button_clicked, button_id))
@@ -174,6 +217,7 @@ class ButtonTab(QWidget):
         """)
         delete_btn.clicked.connect(partial(self.on_delete_button_clicked, button_id))
 
+        row_layout.addWidget(type_icon_label, stretch=1)
         row_layout.addWidget(edit_btn, stretch=4)
         row_layout.addWidget(delete_btn, stretch=1)
         return row_widget
