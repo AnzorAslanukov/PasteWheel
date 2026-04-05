@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTabBar
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QToolTip
 from radial_interface_settings.tabs.general_tab import GeneralTab
 from radial_interface_settings.tabs.button_tab import ButtonTab
@@ -38,6 +38,10 @@ class LockedTabBar(QTabBar):
 
 
 class RadialInterfaceSettings(QWidget):
+    # Emitted after any button is saved or deleted so that the radial
+    # interface can re-render its button widgets with the latest config data.
+    buttons_changed = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.width = 400
@@ -95,9 +99,11 @@ class RadialInterfaceSettings(QWidget):
             }}
         """)
 
-        # Create tab widget with custom tab bar for locked-tab cursor behaviour
-        tab_widget = QTabWidget()
-        tab_widget.setTabBar(LockedTabBar())
+        # Create tab widget with custom tab bar for locked-tab cursor behaviour.
+        # Stored as self.tab_widget so _on_button_saved can update tab states.
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabBar(LockedTabBar())
+        tab_widget = self.tab_widget  # local alias for readability below
 
         # Get config to determine layer unlock conditions:
         # Layer 2 unlocks when Layer 1 has at least one expand-type button.
@@ -164,4 +170,62 @@ class RadialInterfaceSettings(QWidget):
             button_id=button_id, layer=layer, parent=self, parent_id=parent_id
         )
         self.button_settings_windows.append(button_settings)
+        # Refresh the correct tab and re-evaluate layer lock states after save
+        from functools import partial
+        button_settings.button_saved.connect(partial(self._on_button_saved, layer))
         button_settings.show()
+
+    def _on_button_saved(self, layer):
+        """
+        Called when a button is saved in RadialInterfaceButtonSettings.
+
+        Refreshes the ButtonTab for the saved layer so the new button appears
+        immediately, then delegates lock-state re-evaluation to
+        _update_tab_lock_states().
+
+        Args:
+            layer: The layer number (1, 2, or 3) that was just written to.
+        """
+        tab_map = {
+            1: self.layer_1_buttons,
+            2: self.layer_2_buttons,
+            3: self.layer_3_buttons,
+        }
+        tab = tab_map.get(layer)
+        if tab is not None:
+            tab._refresh()
+
+        self._update_tab_lock_states()
+
+    def _update_tab_lock_states(self):
+        """
+        Re-read the config and synchronise the Layer 2 / Layer 3 tab states.
+
+        Called after every save and every deletion so that:
+          - Adding a Layer-1 expand button unlocks the Layer-2 tab immediately.
+          - Deleting the last Layer-1 expand button locks the Layer-2 tab.
+          - The same logic applies between Layer 2 and Layer 3.
+          - Layer 2 and Layer 3 tab content is always refreshed so stale
+            messages (e.g. "No expand buttons found") are replaced with
+            current data.
+        """
+        config = PasteWheelConfig()
+        layer_2_unlocked = config.has_expand_button_in_layer(1)
+        layer_3_unlocked = config.has_expand_button_in_layer(2)
+
+        # Update the tab bar clickability
+        self.tab_widget.setTabEnabled(2, layer_2_unlocked)
+        self.tab_widget.setTabEnabled(3, layer_3_unlocked)
+
+        # Keep the ButtonTab interaction state in sync
+        self.layer_2_buttons.set_enabled(layer_2_unlocked)
+        self.layer_3_buttons.set_enabled(layer_3_unlocked)
+
+        # Always refresh Layer 2 and Layer 3 content so they reflect the
+        # current config (handles both unlock and lock transitions).
+        self.layer_2_buttons._refresh()
+        self.layer_3_buttons._refresh()
+
+        # Notify the radial interface (and any other listeners) that the
+        # button set has changed so they can re-render their widgets.
+        self.buttons_changed.emit()

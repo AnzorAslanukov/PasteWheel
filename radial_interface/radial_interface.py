@@ -391,9 +391,34 @@ class RadialInterface(QWidget):
         """Handle settings button click - open settings window."""
         if self.settings_window is None:
             self.settings_window = RadialInterfaceSettings()
+            # Re-render button widgets whenever a button is saved or deleted
+            # so the radial interface always reflects the latest config data.
+            self.settings_window.buttons_changed.connect(self._on_buttons_changed)
         self.settings_window.show()
         self.settings_window.raise_()
         self.settings_window.activateWindow()
+
+    def _on_buttons_changed(self):
+        """
+        Re-render all radial interface button widgets from the current config.
+
+        Called whenever the settings window saves or deletes a button so that
+        the on-screen widgets always reflect the latest ``pastewheel_config.json``
+        data (correct ``button_clipboard`` lists, labels, types, etc.).
+
+        Steps:
+          1. Reload ``self.layer1/2/3`` from config.
+          2. Destroy all existing button widgets and create fresh ones.
+          3. Sync the "add first button" centre widget visibility.
+        """
+        self._load_buttons_from_config()
+        self._render_button_widgets()
+
+        config = PasteWheelConfig()
+        if config.has_any_buttons():
+            self.add_new_btns.hide()
+        else:
+            self.add_new_btns.show()
 
     def paintEvent(self, event):
         painter = QPainter(self)

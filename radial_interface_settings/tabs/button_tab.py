@@ -405,6 +405,8 @@ class ButtonTab(QWidget):
         """
         Handle a Delete button click event.
         Removes the button from pastewheel_config.json and refreshes the tab.
+        Also notifies the parent settings window to re-evaluate layer lock states
+        (e.g. deleting a Layer-1 expand button should lock the Layer-2 tab).
 
         Args:
             button_id: ID of the button to delete
@@ -416,6 +418,10 @@ class ButtonTab(QWidget):
         if DEBUG:
             DebugLogger.log(f"remove_button({button_id}) returned {removed}")
         self._refresh()
+        # Re-evaluate tab lock states in the parent settings window so that
+        # removing an expand button locks the dependent layer tab immediately.
+        if self.settings_window is not None:
+            self.settings_window._update_tab_lock_states()
 
     def _refresh(self):
         """
@@ -432,18 +438,18 @@ class ButtonTab(QWidget):
 
     def set_enabled(self, enabled):
         """
-        Set whether the tab is enabled (visible and clickable).
+        Set whether the tab is enabled (interactive) without hiding the widget.
+
+        Calling hide() on a QTabWidget page breaks Qt's internal page management
+        and causes the widget to appear in the wrong location when show() is
+        called later.  We therefore only toggle the Qt enabled state here and
+        let the QTabWidget control page visibility through setTabEnabled().
 
         Args:
-            enabled: Boolean indicating tab visibility and interaction state
+            enabled: Boolean indicating whether the tab should be interactive.
         """
         self.is_enabled = enabled
         self.setEnabled(enabled)
-
-        if enabled:
-            self.show()
-        else:
-            self.hide()
 
     def is_tab_enabled(self):
         """

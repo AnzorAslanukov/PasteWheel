@@ -8,6 +8,7 @@ test.py
 user_config.json
 test_picker.py
 tr.txt
+pastewheel_conditions.txt
 
 /previous_files
 /tests/

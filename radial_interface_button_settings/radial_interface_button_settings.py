@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QObject
 from PyQt5.QtSvg import QSvgRenderer
 from PyQt5.QtGui import QPixmap, QPainter
 from PyQt5.QtCore import QSize, QRectF
@@ -18,6 +18,10 @@ from radial_interface_button_settings.emoji_symbol_picker.emoji_symbol_picker im
 DEBUG = False
 
 class RadialInterfaceButtonSettings(QWidget):
+    # Emitted after a button is successfully saved to config.
+    # Connected by RadialInterfaceSettings to trigger a tab refresh.
+    button_saved = pyqtSignal()
+
     def __init__(self, button_id=None, layer=None, parent=None, parent_id=None):
         """
         Initialize the RadialInterfaceButtonSettings window.
@@ -397,6 +401,10 @@ class RadialInterfaceButtonSettings(QWidget):
         # Connect symbol button to open emoji picker
         self.rib_btn_title_symbol_btn.clicked.connect(self._on_symbol_btn_clicked)
 
+        # If editing an existing button, pre-populate the form with its saved data
+        if self.button_id:
+            self._load_existing_button_data()
+
     def open_button_settings(self, button_id=None):
         """
         Open the RadialInterfaceButtonSettings window.
@@ -626,17 +634,36 @@ class RadialInterfaceButtonSettings(QWidget):
         # Determine layer (fall back to 1 if not set)
         layer = self.layer if self.layer is not None else 1
 
-        # Calculate sequence number:
-        # For layer 2/3 child buttons, count siblings under the same parent.
-        # For layer 1 (or buttons without a parent), count all buttons in the layer.
-        if self.parent_id is not None:
-            existing = config.get_child_buttons_by_parent(self.parent_id)
+        # Determine button ID:
+        # Edit mode  (self.button_id is set) → reuse the existing ID so that
+        #   add_button() updates the record in-place instead of appending a new one.
+        # New-button mode (self.button_id is None) → generate a fresh ID using
+        #   max(existing_sequence_numbers) + 1 to avoid collisions after deletions.
+        if self.button_id is not None:
+            button_id = self.button_id
         else:
-            existing = config.get_buttons_by_layer(layer) or []
-        sequence = len(existing) + 1
+            # Calculate sequence number:
+            # For layer 2/3 child buttons, count siblings under the same parent.
+            # For layer 1 (or buttons without a parent), count all buttons in the layer.
+            if self.parent_id is not None:
+                existing = config.get_child_buttons_by_parent(self.parent_id)
+            else:
+                existing = config.get_buttons_by_layer(layer) or []
 
-        # Build button ID
-        button_id = f"{type_prefix}_l{layer}_s{sequence}"
+            # Use max existing sequence number + 1 to avoid ID collisions after deletions.
+            # len(existing) + 1 would collide when gaps exist (e.g. s1,s2,s4 → len=3 → s4 clash).
+            existing_seqs = []
+            for btn in existing:
+                btn_id = btn.get("id", "")
+                try:
+                    seq_str = btn_id.rsplit("_s", 1)[-1]
+                    existing_seqs.append(int(seq_str))
+                except (ValueError, IndexError):
+                    pass
+            sequence = max(existing_seqs, default=0) + 1
+
+            # Build button ID
+            button_id = f"{type_prefix}_l{layer}_s{sequence}"
 
         # Build clipboard list
         if is_clipboard:
@@ -675,6 +702,10 @@ class RadialInterfaceButtonSettings(QWidget):
         self.updated_icon_seq2.hide()
         self.updated_icon_tooltip.hide()
 
+        # Notify listeners (e.g. ButtonTab) that a button was saved so they
+        # can refresh their content without requiring the window to reopen.
+        self.button_saved.emit()
+
         # Close the window after saving
         self.close()
 
@@ -707,6 +738,73 @@ class RadialInterfaceButtonSettings(QWidget):
         self.rib_tooltip_editor.show()
         self.rib_tooltip_editor.raise_()
         self.rib_tooltip_editor.activateWindow()
+
+    def _load_existing_button_data(self):
+        """
+        Pre-populate all UI fields with the saved data for ``self.button_id``.
+
+        Called at the end of ``initUI()`` when editing an existing button so
+        the user sees the current values rather than a blank form.  Has no
+        effect when ``self.button_id`` is ``None`` (new-button mode).
+        """
+        if not self.button_id:
+            return
+
+        config = PasteWheelConfig()
+        button_data = config.get_button(self.button_id)
+        if button_data is None:
+            return
+
+        # ── Button type ──────────────────────────────────────────────────
+        button_type = button_data.get("button_type", "clip")
+        if button_type == "exp":
+            # Checking expand unchecks clipboard via the mutual-exclusion
+            # signal handlers; clipboard data is cleared automatically.
+            self.rib_radio_select_expand.setChecked(True)
+        # else: clipboard radio is already checked by default — no signal fires
+        # if it is already in the checked state, so nothing extra is needed.
+
+        # ── Label ────────────────────────────────────────────────────────
+        label = button_data.get("label", "")
+        if label:
+            # Setting text triggers _on_char_text_changed which sets
+            # self.label_data, but we also set it explicitly as a safety net.
+            self.rib_btn_title_char_input_label.widget.setText(label)
+            self.label_data = label
+
+        # ── Clipboard data ───────────────────────────────────────────────
+        clipboard = button_data.get("clipboard", [])
+        if clipboard and button_type == "clip":
+            seq1 = clipboard[0] if len(clipboard) > 0 else None
+            seq2 = clipboard[1] if len(clipboard) > 1 else None
+
+            if seq1:
+                self.seq_1_data = seq1
+                self.seq_1_clipboard_editor.ribs_clipboard_input.setPlainText(seq1)
+                self.updated_icon_seq1.show()
+
+            if seq2:
+                self.seq_2_data = seq2
+                self.seq_2_clipboard_editor.ribs_clipboard_input.setPlainText(seq2)
+                # Checking the checkbox enables the seq-2 edit button via
+                # _on_seq_2_checkbox_changed.
+                self.seq_2_checkbox.setChecked(True)
+                self.updated_icon_seq2.show()
+
+        # ── Tooltip ──────────────────────────────────────────────────────
+        tooltip = button_data.get("tooltip", "")
+        if tooltip:
+            self.tooltip_data = tooltip
+            # Pre-populate the tooltip editor so the user sees the saved text
+            # when they open it.
+            self.rib_tooltip_editor.tooltip_input.setPlainText(tooltip)
+            # Checking the checkbox enables the configure button via
+            # _on_tooltip_checkbox_changed.
+            self.rib_tooltip_checkbox.setChecked(True)
+            self.updated_icon_tooltip.show()
+
+        # ── Refresh save-button state ────────────────────────────────────
+        self._update_save_button_clickability()
 
     def _apply_layer_constraints(self):
         """
